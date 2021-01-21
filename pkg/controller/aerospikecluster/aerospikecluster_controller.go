@@ -174,12 +174,14 @@ func (r *ReconcileAerospikeCluster) Reconcile(request reconcile.Request) (reconc
 	if isNew {
 		logger.Debug("It's new cluster, create empty status object")
 		if err := r.createStatus(aeroCluster); err != nil {
+			logger.Error("Failed to create empty status", log.Ctx{"err": err})
 			return reconcile.Result{}, err
 		}
 	} else {
 		logger.Debug("It's not a new cluster, check if it is failed and needs recovery")
 		hasFailed, err := r.hasClusterFailed(aeroCluster)
 		if err != nil {
+			logger.Error("Failed to determining if cluster has failed", log.Ctx{"err": err})
 			return reconcile.Result{}, fmt.Errorf("Error determining if cluster has failed: %v", err)
 		}
 
@@ -190,6 +192,7 @@ func (r *ReconcileAerospikeCluster) Reconcile(request reconcile.Request) (reconc
 
 	// Reconcile all racks
 	if err := r.ReconcileRacks(aeroCluster); err != nil {
+		logger.Error("Failed to reconcile racks", log.Ctx{"err": err})
 		return reconcile.Result{}, err
 	}
 
@@ -342,7 +345,7 @@ func (r *ReconcileAerospikeCluster) needsRollingRestart(aeroCluster *aerospikev1
 	needsRollingRestart := false
 
 	// Aerospike config nil in status indicates that AerospikeCluster object is created but status is not successfully updated even once
-	if aeroCluster.Status.AerospikeConfig != nil {
+	if aeroCluster.Status.AerospikeConfig.Raw != nil {
 		// Check if rack specific spec has changed.
 		for _, statusRack := range aeroCluster.Status.RackConfig.Racks {
 			if rackState.Rack.ID == statusRack.ID {
@@ -866,7 +869,11 @@ func (r *ReconcileAerospikeCluster) scaleDownRack(aeroCluster *aerospikev1alpha1
 func (r *ReconcileAerospikeCluster) reconcileAccessControl(aeroCluster *aerospikev1alpha1.AerospikeCluster) error {
 	logger := pkglog.New(log.Ctx{"AerospikeCluster": utils.ClusterNamespacedName(aeroCluster)})
 
-	enabled, err := utils.IsSecurityEnabled(aeroCluster.Spec.AerospikeConfig)
+	config, err := aerospikev1alpha1.ToAeroConfMap(aeroCluster.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
+	enabled, err := utils.IsSecurityEnabled(config)
 	if err != nil {
 		return fmt.Errorf("Failed to get cluster security status: %v", err)
 	}
@@ -953,7 +960,7 @@ func (r *ReconcileAerospikeCluster) createStatus(aeroCluster *aerospikev1alpha1.
 }
 
 func (r *ReconcileAerospikeCluster) isNewCluster(aeroCluster *aerospikev1alpha1.AerospikeCluster) (bool, error) {
-	if aeroCluster.Status.AerospikeConfig != nil {
+	if aeroCluster.Status.AerospikeConfig.Raw != nil {
 		// We have valid status, cluster cannot be new.
 		return false, nil
 	}
@@ -977,7 +984,7 @@ func (r *ReconcileAerospikeCluster) hasClusterFailed(aeroCluster *aerospikev1alp
 		return false, err
 	}
 
-	return !isNew && aeroCluster.Status.AerospikeConfig == nil, nil
+	return !isNew && aeroCluster.Status.AerospikeConfig.Raw == nil, nil
 }
 
 func (r *ReconcileAerospikeCluster) patchStatus(oldAeroCluster, newAeroCluster *aerospikev1alpha1.AerospikeCluster) error {

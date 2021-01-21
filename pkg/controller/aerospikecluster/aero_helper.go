@@ -29,7 +29,6 @@ import (
 	aerospikev1alpha1 "github.com/aerospike/aerospike-kubernetes-operator/pkg/apis/aerospike/v1alpha1"
 	"github.com/aerospike/aerospike-kubernetes-operator/pkg/controller/utils"
 	"github.com/aerospike/aerospike-management-lib/deployment"
-	"github.com/travelaudience/aerospike-operator/pkg/meta"
 )
 
 //------------------------------------------------------------------------------------
@@ -48,7 +47,7 @@ func (r *ReconcileAerospikeCluster) getAerospikeServerVersionFromPod(aeroCluster
 	}
 	version, ok := res["build"]
 	if !ok {
-		return "", fmt.Errorf("Failed to get aerospike version from pod %v", meta.Key(pod))
+		return "", fmt.Errorf("Failed to get aerospike version from pod %s", pod.Name)
 	}
 	return version, nil
 }
@@ -241,7 +240,12 @@ func (r *ReconcileAerospikeCluster) newAsConn(aeroCluster *aerospikev1alpha1.Aer
 }
 
 func getServiceTLSName(aeroCluster *aerospikev1alpha1.AerospikeCluster) string {
-	if networkConfTmp, ok := aeroCluster.Spec.AerospikeConfig["network"]; ok {
+	// TODO: Should we return err, should have failed in validation
+	aeroConf, err := aerospikev1alpha1.ToAeroConfMap(aeroCluster.Spec.AerospikeConfig)
+	if err != nil {
+		return ""
+	}
+	if networkConfTmp, ok := aeroConf["network"]; ok {
 		networkConf := networkConfTmp.(map[string]interface{})
 		if tlsName, ok := networkConf["service"].(map[string]interface{})["tls-name"]; ok {
 			return tlsName.(string)

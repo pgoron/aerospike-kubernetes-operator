@@ -9,7 +9,7 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-func setDefaultNsConf(logger log.Logger, config aerospikev1alpha1.Values, rackEnabledNsList []string) error {
+func setDefaultNsConf(logger log.Logger, config aerospikev1alpha1.AeroConfMap, rackEnabledNsList []string) error {
 	// namespace conf
 	nsConf, ok := config["namespaces"]
 	if !ok {
@@ -57,7 +57,7 @@ func setDefaultNsConf(logger log.Logger, config aerospikev1alpha1.Values, rackEn
 	return nil
 }
 
-func setDefaultServiceConf(logger log.Logger, config aerospikev1alpha1.Values, crObjName string) error {
+func setDefaultServiceConf(logger log.Logger, config aerospikev1alpha1.AeroConfMap, crObjName string) error {
 	if _, ok := config["service"]; !ok {
 		config["service"] = map[string]interface{}{}
 	}
@@ -80,7 +80,7 @@ func setDefaultServiceConf(logger log.Logger, config aerospikev1alpha1.Values, c
 	return nil
 }
 
-func setDefaultNetworkConf(logger log.Logger, config aerospikev1alpha1.Values) error {
+func setDefaultNetworkConf(logger log.Logger, config aerospikev1alpha1.AeroConfMap) error {
 	// Network section
 	if _, ok := config["network"]; !ok {
 		config["network"] = map[string]interface{}{}
@@ -167,7 +167,7 @@ func setDefaultNetworkConf(logger log.Logger, config aerospikev1alpha1.Values) e
 	return nil
 }
 
-func setDefaultLoggingConf(logger log.Logger, config aerospikev1alpha1.Values) error {
+func setDefaultLoggingConf(logger log.Logger, config aerospikev1alpha1.AeroConfMap) error {
 	if _, ok := config["logging"]; !ok {
 		config["logging"] = []interface{}{}
 	}
@@ -201,7 +201,7 @@ func setDefaultLoggingConf(logger log.Logger, config aerospikev1alpha1.Values) e
 	return nil
 }
 
-func setDefaultXDRConf(logger log.Logger, config aerospikev1alpha1.Values) error {
+func setDefaultXDRConf(logger log.Logger, config aerospikev1alpha1.AeroConfMap) error {
 	// Nothing to update for now
 
 	return nil
@@ -212,7 +212,7 @@ func setDefaultsInConfigMap(logger log.Logger, baseConfigs, defaultConfigs map[s
 		// Special handling.
 		// Older baseValues are parsed to int64 but defaults are in int
 		if newv, ok := v.(int); ok {
-			v = int64(newv)
+			v = float64(newv)
 		}
 
 		// Older baseValues are parsed to []interface{} but defaults are in []string

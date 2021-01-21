@@ -31,11 +31,13 @@ func CreateConfigMapData(aeroCluster *aerospikev1alpha1.AerospikeCluster, rack a
 func buildConfigTemplate(aeroCluster *aerospikev1alpha1.AerospikeCluster, rack aerospikev1alpha1.Rack) (string, error) {
 	version := strings.Split(aeroCluster.Spec.Image, ":")
 
-	config := rack.AerospikeConfig
+	configMap, err := aerospikev1alpha1.ToAeroConfMap(rack.AerospikeConfig)
+	if err != nil {
+		return "", err
+	}
+	pkglog.Debug("AerospikeConfig", log.Ctx{"config": configMap, "image": aeroCluster.Spec.Image})
 
-	pkglog.Debug("AerospikeConfig", log.Ctx{"config": config, "image": aeroCluster.Spec.Image})
-
-	asConf, err := asconfig.NewMapAsConfig(version[1], config)
+	asConf, err := asconfig.NewMapAsConfig(version[1], configMap)
 	if err != nil {
 		return "", fmt.Errorf("Failed to load config map by lib: %v", err)
 	}

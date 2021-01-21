@@ -110,12 +110,23 @@ func (s *ClusterMutatingAdmissionWebhook) setDefaults() error {
 
 	// Set common aerospikeConfig defaults
 	config := s.obj.Spec.AerospikeConfig
-	if config == nil {
+	if config.Raw == nil {
 		return fmt.Errorf("aerospikeConfig cannot be empty")
 	}
-	if err := s.setDefaultAerospikeConfigs(config); err != nil {
+	configMap, err := aerospikev1alpha1.ToAeroConfMap(config)
+	if err != nil {
 		return err
 	}
+	// Update configMap
+	if err := s.setDefaultAerospikeConfigs(configMap); err != nil {
+		return err
+	}
+	rawConf, err := aerospikev1alpha1.ToAeroConfRaw(configMap)
+	if err != nil {
+		return err
+	}
+
+	s.obj.Spec.AerospikeConfig.Raw = rawConf
 
 	// Update racks configuration using global values where required.
 	if err := s.updateRacks(); err != nil {
@@ -190,19 +201,29 @@ func (s *ClusterMutatingAdmissionWebhook) updateRacksStorageFromGlobal() error {
 }
 
 func (s *ClusterMutatingAdmissionWebhook) updateRacksAerospikeConfigFromGlobal() error {
+	baseConfigMap, err := aerospikev1alpha1.ToAeroConfMap(s.obj.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
+
 	for i, rack := range s.obj.Spec.RackConfig.Racks {
 		var m map[string]interface{}
-		var err error
 		if rack.InputAerospikeConfig != nil {
 			// Merge this rack's and global config.
-			m, err = merge(s.obj.Spec.AerospikeConfig, *rack.InputAerospikeConfig)
+			rackConfigMap, err := aerospikev1alpha1.ToAeroConfMap(*rack.InputAerospikeConfig)
+			if err != nil {
+				return err
+			}
+
+			m, err = merge(baseConfigMap, rackConfigMap)
+
 			s.logger.Debug("Merged rack config from global aerospikeConfig", log.Ctx{"rack id": rack.ID, "rackAerospikeConfig": m, "globalAerospikeConfig": s.obj.Spec.AerospikeConfig})
 			if err != nil {
 				return err
 			}
 		} else {
 			// Use the global config.
-			m = s.obj.Spec.AerospikeConfig
+			m = baseConfigMap
 		}
 
 		s.logger.Debug("Update rack aerospikeConfig from default aerospikeConfig", log.Ctx{"rackAerospikeConfig": m})
@@ -211,12 +232,16 @@ func (s *ClusterMutatingAdmissionWebhook) updateRacksAerospikeConfigFromGlobal()
 		if err := s.setDefaultAerospikeConfigs(m); err != nil {
 			return err
 		}
-		s.obj.Spec.RackConfig.Racks[i].AerospikeConfig = m
+		rawConf, err := aerospikev1alpha1.ToAeroConfRaw(m)
+		if err != nil {
+			return err
+		}
+		s.obj.Spec.RackConfig.Racks[i].AerospikeConfig.Raw = rawConf
 	}
 	return nil
 }
 
-func (s *ClusterMutatingAdmissionWebhook) setDefaultAerospikeConfigs(config aerospikev1alpha1.Values) error {
+func (s *ClusterMutatingAdmissionWebhook) setDefaultAerospikeConfigs(config aerospikev1alpha1.AeroConfMap) error {
 
 	// namespace conf
 	if err := setDefaultNsConf(s.logger, config, s.obj.Spec.RackConfig.Namespaces); err != nil {

@@ -1,9 +1,8 @@
 
 #!/usr/bin/env bash
 
-kubectl apply -f deploy/storage_class.yaml
+kubectl apply -f deploy/samples/storage_classes/gce-ssd-storage-class.yaml
 sleep 2
-
 # Setup operator
 kubectl create namespace aerospike
 sleep 2

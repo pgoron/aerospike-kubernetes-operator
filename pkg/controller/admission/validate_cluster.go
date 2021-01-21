@@ -95,8 +95,16 @@ func (s *ClusterValidatingAdmissionWebhook) ValidateUpdate(old aerospikev1alpha1
 		return fmt.Errorf("Cannot update MultiPodPerHost setting")
 	}
 
+	newConfigMap, err := aerospikev1alpha1.ToAeroConfMap(s.obj.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
+	oldConfigMap, err := aerospikev1alpha1.ToAeroConfMap(old.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
 	// Validate AerospikeConfig update
-	if err := validateAerospikeConfigUpdate(s.logger, s.obj.Spec.AerospikeConfig, old.Spec.AerospikeConfig); err != nil {
+	if err := validateAerospikeConfigUpdate(s.logger, newConfigMap, oldConfigMap); err != nil {
 		return err
 	}
 
@@ -152,7 +160,11 @@ func (s *ClusterValidatingAdmissionWebhook) validate() error {
 
 	// Validate for AerospikeConfigSecret.
 	// TODO: Should we validate mount path also. Config has tls info at different paths, fetching and validating that may be little complex
-	if isSecretNeeded(s.obj.Spec.AerospikeConfig) && s.obj.Spec.AerospikeConfigSecret.SecretName == "" {
+	configMap, err := aerospikev1alpha1.ToAeroConfMap(s.obj.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
+	if isSecretNeeded(configMap) && s.obj.Spec.AerospikeConfigSecret.SecretName == "" {
 		return fmt.Errorf("aerospikeConfig has feature-key-file path or tls paths. User need to create a secret for these and provide its info in `aerospikeConfigSecret` field")
 	}
 
@@ -176,22 +188,21 @@ func (s *ClusterValidatingAdmissionWebhook) validate() error {
 	}
 
 	// Validate common aerospike config
-	aeroConfig := s.obj.Spec.AerospikeConfig
-	if err := validateAerospikeConfig(s.logger, aeroConfig, &s.obj.Spec.Storage, int(s.obj.Spec.Size)); err != nil {
+	if err := validateAerospikeConfig(s.logger, configMap, &s.obj.Spec.Storage, int(s.obj.Spec.Size)); err != nil {
 		return err
 	}
 
 	// Validate if passed aerospikeConfig
-	if err := validateAerospikeConfigSchema(s.logger, version, s.obj.Spec.AerospikeConfig); err != nil {
+	if err := validateAerospikeConfigSchema(s.logger, version, configMap); err != nil {
 		return fmt.Errorf("AerospikeConfig not valid: %v", err)
 	}
 
-	err = validateRequiredFileStorage(s.logger, aeroConfig, &s.obj.Spec.Storage, s.obj.Spec.ValidationPolicy, version)
+	err = validateRequiredFileStorage(s.logger, configMap, &s.obj.Spec.Storage, s.obj.Spec.ValidationPolicy, version)
 	if err != nil {
 		return err
 	}
 
-	err = validateConfigMapVolumes(s.logger, aeroConfig, &s.obj.Spec.Storage, s.obj.Spec.ValidationPolicy, version)
+	err = validateConfigMapVolumes(s.logger, configMap, &s.obj.Spec.Storage, s.obj.Spec.ValidationPolicy, version)
 	if err != nil {
 		return err
 	}
@@ -247,10 +258,16 @@ func (s *ClusterValidatingAdmissionWebhook) validateRackUpdate(old aerospikev1al
 					return fmt.Errorf("Old RackConfig (NodeName, RackLabel, Region, Zone) can not be updated. Old rack %v, new rack %v", oldRack, newRack)
 				}
 
-				if len(oldRack.AerospikeConfig) != 0 || len(newRack.AerospikeConfig) != 0 {
+				if len(oldRack.AerospikeConfig.Raw) != 0 || len(newRack.AerospikeConfig.Raw) != 0 {
 					// Config might have changed
-					newConf := newRack.AerospikeConfig
-					oldConf := oldRack.AerospikeConfig
+					newConf, err := aerospikev1alpha1.ToAeroConfMap(newRack.AerospikeConfig)
+					if err != nil {
+						return err
+					}
+					oldConf, err := aerospikev1alpha1.ToAeroConfMap(oldRack.AerospikeConfig)
+					if err != nil {
+						return err
+					}
 					// Validate aerospikeConfig update
 					if err := validateAerospikeConfigUpdate(s.logger, newConf, oldConf); err != nil {
 						return fmt.Errorf("Invalid update in Rack(ID: %d) aerospikeConfig: %v", oldRack.ID, err)
@@ -332,8 +349,12 @@ func (s *ClusterValidatingAdmissionWebhook) validateRackConfig() error {
 			return fmt.Errorf("Invalid rackID. RackID range (%d, %d)", utils.MinRackID, utils.MaxRackID)
 		}
 
-		if len(rack.AerospikeConfig) != 0 || len(rack.Storage.Volumes) != 0 {
-			config := rack.AerospikeConfig
+		config, err := aerospikev1alpha1.ToAeroConfMap(rack.AerospikeConfig)
+		if err != nil {
+			return err
+		}
+
+		if len(rack.AerospikeConfig.Raw) != 0 || len(rack.Storage.Volumes) != 0 {
 			// TODO:
 			// Replication-factor in rack and commonConfig can not be different
 			storage := rack.Storage
@@ -343,8 +364,8 @@ func (s *ClusterValidatingAdmissionWebhook) validateRackConfig() error {
 		}
 
 		// Validate rack aerospike config
-		if len(rack.AerospikeConfig) != 0 {
-			if err := validateAerospikeConfigSchema(s.logger, version, rack.AerospikeConfig); err != nil {
+		if len(rack.AerospikeConfig.Raw) != 0 {
+			if err := validateAerospikeConfigSchema(s.logger, version, config); err != nil {
 				return fmt.Errorf("AerospikeConfig not valid for rack %v", rack)
 			}
 		}

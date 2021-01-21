@@ -110,7 +110,11 @@ func IsAerospikeAccessControlValid(aerospikeCluster *aerospikev1alpha1.Aerospike
 	}
 
 	// Validate roles.
-	_, err = isRoleSpecValid(aerospikeCluster.AerospikeAccessControl.Roles, aerospikeCluster.AerospikeConfig)
+	aeroConf, err := aerospikev1alpha1.ToAeroConfMap(aerospikeCluster.AerospikeConfig)
+	if err != nil {
+		return false, err
+	}
+	_, err = isRoleSpecValid(aerospikeCluster.AerospikeAccessControl.Roles, aeroConf)
 	if err != nil {
 		return false, err
 	}
@@ -129,11 +133,15 @@ func IsAerospikeAccessControlValid(aerospikeCluster *aerospikev1alpha1.Aerospike
 
 // isSecurityEnabled indicates if clusterSpec has security enabled.
 func isSecurityEnabled(aerospikeCluster *aerospikev1alpha1.AerospikeClusterSpec) (bool, error) {
-	if len(aerospikeCluster.AerospikeConfig) == 0 {
+	if len(aerospikeCluster.AerospikeConfig.Raw) == 0 {
 		return false, fmt.Errorf("Missing aerospike configuration in cluster state")
 	}
 
-	enabled, err := utils.IsSecurityEnabled(aerospikeCluster.AerospikeConfig)
+	config, err := aerospikev1alpha1.ToAeroConfMap(aerospikeCluster.AerospikeConfig)
+	if err != nil {
+		return false, err
+	}
+	enabled, err := utils.IsSecurityEnabled(config)
 
 	if err != nil {
 		return false, fmt.Errorf("Failed to get cluster security status: %v", err)
@@ -143,7 +151,7 @@ func isSecurityEnabled(aerospikeCluster *aerospikev1alpha1.AerospikeClusterSpec)
 }
 
 // isRoleSpecValid indicates if input role spec is valid.
-func isRoleSpecValid(roles []aerospikev1alpha1.AerospikeRoleSpec, aerospikeConfig aerospikev1alpha1.Values) (bool, error) {
+func isRoleSpecValid(roles []aerospikev1alpha1.AerospikeRoleSpec, aerospikeConfig aerospikev1alpha1.AeroConfMap) (bool, error) {
 	seenRoles := map[string]bool{}
 	for _, roleSpec := range roles {
 		_, isSeen := seenRoles[roleSpec.Name]
@@ -225,7 +233,7 @@ func isRoleNameValid(roleName string) (bool, error) {
 }
 
 // Indicates if privilege is a valid privilege.
-func isPrivilegeValid(privilege string, aerospikeConfig aerospikev1alpha1.Values) (bool, error) {
+func isPrivilegeValid(privilege string, aerospikeConfig aerospikev1alpha1.AeroConfMap) (bool, error) {
 	parts := strings.Split(privilege, ".")
 
 	_, ok := privileges[parts[0]]

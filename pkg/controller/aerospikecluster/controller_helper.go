@@ -666,7 +666,12 @@ func (r *ReconcileAerospikeCluster) getClusterServerPool(aeroCluster *aerospikev
 		return serverPool
 	}
 	// get ca-file and use as cacert
-	tlsConfList := aeroCluster.Spec.AerospikeConfig["network"].(map[string]interface{})["tls"].([]interface{})
+	aeroConf, err := aerospikev1alpha1.ToAeroConfMap(aeroCluster.Spec.AerospikeConfig)
+	if err != nil {
+		logger.Warn("Failed to unmarshal aerospikeConfig, returning empty certPool", log.Ctx{"err": err})
+		return serverPool
+	}
+	tlsConfList := aeroConf["network"].(map[string]interface{})["tls"].([]interface{})
 	for _, tlsConfInt := range tlsConfList {
 		tlsConf := tlsConfInt.(map[string]interface{})
 		if tlsConf["name"].(string) == tlsName {
@@ -697,7 +702,11 @@ func (r *ReconcileAerospikeCluster) getClientCertificate(aeroCluster *aerospikev
 		return nil, err
 	}
 	// get ca-file and use as cacert
-	tlsConfList := aeroCluster.Spec.AerospikeConfig["network"].(map[string]interface{})["tls"].([]interface{})
+	aeroConf, err := aerospikev1alpha1.ToAeroConfMap(aeroCluster.Spec.AerospikeConfig)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfList := aeroConf["network"].(map[string]interface{})["tls"].([]interface{})
 	for _, tlsConfInt := range tlsConfList {
 		tlsConf := tlsConfInt.(map[string]interface{})
 		if tlsConf["name"].(string) == tlsName {
