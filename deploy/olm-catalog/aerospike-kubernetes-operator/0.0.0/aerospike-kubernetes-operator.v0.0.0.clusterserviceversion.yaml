@@ -1,0 +1,144 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: aerospike-kubernetes-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: AerospikeCluster is the Schema for the aerospikeclusters API
+      kind: AerospikeCluster
+      name: aerospikeclusters.aerospike.com
+      version: v1alpha1
+  description: Placeholder description
+  displayName: Aerospike Kubernetes Operator
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - aerospike-kubernetes-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - aerospike.com
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - admissionregistration.k8s.io
+          resources:
+          - validatingwebhookconfigurations
+          - mutatingwebhookconfigurations
+          verbs:
+          - '*'
+        serviceAccountName: aerospike-kubernetes-operator
+      deployments:
+      - name: aerospike-kubernetes-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: aerospike-kubernetes-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: aerospike-kubernetes-operator
+            spec:
+              containers:
+              - command:
+                - aerospike-kubernetes-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: aerospike-kubernetes-operator
+                - name: LOG_LEVEL
+                  value: debug
+                image: sud82/test-operator:v2.0.0
+                imagePullPolicy: Always
+                name: aerospike-kubernetes-operator
+                ports:
+                - containerPort: 8443
+                resources: {}
+              serviceAccountName: aerospike-kubernetes-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  maturity: alpha
+  provider: 
+    name: aerospike
+  maintainers:
+    - name: sud
+      email: abc@gmail.com
+  version: 0.0.0

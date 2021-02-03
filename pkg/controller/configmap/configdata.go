@@ -559,7 +559,10 @@ var onStartShTemplate, _ = template.New("onStartSh").Parse(onStartShTemplateStr)
 
 // getBaseConfData returns the basic data to be used in the config map for input aeroCluster spec.
 func getBaseConfData(aeroCluster *aerospikev1alpha1.AerospikeCluster, rack aerospikev1alpha1.Rack) (map[string]string, error) {
-	config := rack.AerospikeConfig
+	config, err := aerospikev1alpha1.ToAeroConfMap(rack.AerospikeConfig)
+	if err != nil {
+		return nil, err
+	}
 	workDir := utils.GetWorkDirectory(config)
 
 	initializeTemplateInput := initializeTemplateInput{
@@ -570,7 +573,7 @@ func getBaseConfData(aeroCluster *aerospikev1alpha1.AerospikeCluster, rack aeros
 		PodTLSPort:      utils.ServiceTLSPort,
 	}
 	var initializeSh bytes.Buffer
-	err := initializeShTemplate.Execute(&initializeSh, initializeTemplateInput)
+	err = initializeShTemplate.Execute(&initializeSh, initializeTemplateInput)
 	if err != nil {
 		return nil, err
 	}

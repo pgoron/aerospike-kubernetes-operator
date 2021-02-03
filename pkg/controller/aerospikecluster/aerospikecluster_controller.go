@@ -170,6 +170,7 @@ func (r *ReconcileAerospikeCluster) Reconcile(request reconcile.Request) (reconc
 
 	// Reconcile all racks
 	if res := r.reconcileRacks(aeroCluster); !res.isSuccess {
+		logger.Error("Failed to reconcile racks", log.Ctx{"err": res.err})
 		return res.result, res.err
 	}
 
@@ -212,12 +213,14 @@ func (r *ReconcileAerospikeCluster) handlePreviouslyFailedCluster(aeroCluster *a
 	if isNew {
 		logger.Debug("It's new cluster, create empty status object")
 		if err := r.createStatus(aeroCluster); err != nil {
+			logger.Error("Failed to create empty status", log.Ctx{"err": err})
 			return err
 		}
 	} else {
 		logger.Debug("It's not a new cluster, check if it is failed and needs recovery")
 		hasFailed, err := r.hasClusterFailed(aeroCluster)
 		if err != nil {
+			logger.Error("Failed to determining if cluster has failed", log.Ctx{"err": err})
 			return fmt.Errorf("Error determining if cluster has failed: %v", err)
 		}
 
@@ -523,7 +526,7 @@ func (r *ReconcileAerospikeCluster) isAerospikeConfigUpdatedForRack(aeroCluster 
 	logger := pkglog.New(log.Ctx{"AerospikeClusterSTS": getNamespacedNameForStatefulSet(aeroCluster, rackState.Rack.ID)})
 
 	// AerospikeConfig nil means status not updated yet
-	if aeroCluster.Status.AerospikeConfig == nil {
+	if aeroCluster.Status.AerospikeConfig.Raw == nil {
 		return false
 	}
 	// TODO: Should we use some other check? Reconcile may requeue request multiple times before updating status and
@@ -843,7 +846,7 @@ func (r *ReconcileAerospikeCluster) needRollingRestartPod(aeroCluster *aerospike
 	needRollingRestartPod := false
 
 	// AerospikeConfig nil means status not updated yet
-	if aeroCluster.Status.AerospikeConfig == nil {
+	if aeroCluster.Status.AerospikeConfig.Raw == nil {
 		return needRollingRestartPod, nil
 	}
 
@@ -1227,7 +1230,11 @@ func (r *ReconcileAerospikeCluster) scaleDownRack(aeroCluster *aerospikev1alpha1
 func (r *ReconcileAerospikeCluster) reconcileAccessControl(aeroCluster *aerospikev1alpha1.AerospikeCluster) error {
 	logger := pkglog.New(log.Ctx{"AerospikeCluster": utils.ClusterNamespacedName(aeroCluster)})
 
-	enabled, err := utils.IsSecurityEnabled(aeroCluster.Spec.AerospikeConfig)
+	config, err := aerospikev1alpha1.ToAeroConfMap(aeroCluster.Spec.AerospikeConfig)
+	if err != nil {
+		return err
+	}
+	enabled, err := utils.IsSecurityEnabled(config)
 	if err != nil {
 		return fmt.Errorf("Failed to get cluster security status: %v", err)
 	}
@@ -1314,7 +1321,7 @@ func (r *ReconcileAerospikeCluster) createStatus(aeroCluster *aerospikev1alpha1.
 }
 
 func (r *ReconcileAerospikeCluster) isNewCluster(aeroCluster *aerospikev1alpha1.AerospikeCluster) (bool, error) {
-	if aeroCluster.Status.AerospikeConfig != nil {
+	if aeroCluster.Status.AerospikeConfig.Raw != nil {
 		// We have valid status, cluster cannot be new.
 		return false, nil
 	}
@@ -1338,7 +1345,7 @@ func (r *ReconcileAerospikeCluster) hasClusterFailed(aeroCluster *aerospikev1alp
 		return false, err
 	}
 
-	return !isNew && aeroCluster.Status.AerospikeConfig == nil, nil
+	return !isNew && aeroCluster.Status.AerospikeConfig.Raw == nil, nil
 }
 
 func (r *ReconcileAerospikeCluster) patchStatus(oldAeroCluster, newAeroCluster *aerospikev1alpha1.AerospikeCluster) error {

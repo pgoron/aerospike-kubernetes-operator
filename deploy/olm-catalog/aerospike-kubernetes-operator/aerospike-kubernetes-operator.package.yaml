@@ -1,0 +1,5 @@
+channels:
+- currentCSV: aerospike-kubernetes-operator.v0.0.0
+  name: alpha
+defaultChannel: alpha
+packageName: aerospike-kubernetes-operator

@@ -1,12 +1,14 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -42,7 +44,7 @@ type AerospikeClusterSpec struct {
 	// AerospikeAccessControl has the Aerospike roles and users definitions. Required if aerospike cluster security is enabled.
 	AerospikeAccessControl *AerospikeAccessControlSpec `json:"aerospikeAccessControl,omitempty"`
 	// AerospikeConfig sets config in aerospike.conf file. Other configs are taken as default
-	AerospikeConfig Values `json:"aerospikeConfig"`
+	AerospikeConfig runtime.RawExtension `json:"aerospikeConfig"`
 	// Define resources requests and limits for Aerospike Server Container. Please contact aerospike for proper sizing exercise
 	// Only Memory and Cpu resources can be given
 	// Resources.Limits should be more than Resources.Requests.
@@ -92,9 +94,9 @@ type Rack struct {
 	// K8s Node name for setting rack affinity. Rack pods will be deployed in given k8s Node
 	NodeName string `json:"nodeName,omitempty"`
 	// AerospikeConfig overrides the common AerospikeConfig for this Rack. This is merged with global Aerospike config.
-	InputAerospikeConfig *Values `json:"aerospikeConfig,omitempty"`
+	InputAerospikeConfig *runtime.RawExtension `json:"aerospikeConfig,omitempty"`
 	// Effective/operative Aerospike config. The resultant is merge of rack Aerospike config and the global Aerospike config
-	AerospikeConfig Values `json:"effectiveAerospikeConfig"`
+	AerospikeConfig runtime.RawExtension `json:"effectiveAerospikeConfig"`
 	// Storage specify persistent storage to use for the pods in this rack. This value overwrites the global storage config
 	InputStorage *AerospikeStorageSpec `json:"storage,omitempty"`
 	// Effective/operative storage. The resultant is user input if specified else global storage
@@ -514,12 +516,32 @@ func (v *AerospikeStorageSpec) DeepCopy() *AerospikeStorageSpec {
 }
 
 // Values used to take unstructured config
-type Values map[string]interface{}
+// type Values map[string]apiextensionsv1.JSON
 
-// DeepCopy implements deepcopy func for Values
-func (v *Values) DeepCopy() *Values {
+// type AeroConfRaw runtime.RawExtension
+
+type AeroConfMap map[string]interface{}
+
+func ToAeroConfMap(conf runtime.RawExtension) (AeroConfMap, error) {
+	var confMap AeroConfMap
+	if err := json.Unmarshal(conf.Raw, &confMap); err != nil {
+		return nil, err
+	}
+
+	return confMap, nil
+}
+
+func ToAeroConfRaw(conf map[string]interface{}) ([]byte, error) {
+	raw, err := json.Marshal(conf)
+	return raw, err
+}
+
+// type Values lib.Stats
+
+// DeepCopy implements deepcopy func for AeroConfMap
+func (v *AeroConfMap) DeepCopy() *AeroConfMap {
 	src := *v
-	var dst = make(Values)
+	var dst = make(AeroConfMap)
 	lib.DeepCopy(dst, src)
 	return &dst
 }
@@ -532,7 +554,7 @@ type AerospikeClusterStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// The current state of Aerospike cluster.
-	AerospikeClusterSpec
+	AerospikeClusterSpec `json:"-"`
 
 	// Details about the current condition of the AerospikeCluster resource.
 	//Conditions []apiextensions.CustomResourceDefinitionCondition `json:"conditions"`

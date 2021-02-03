@@ -39,7 +39,7 @@ func validateClusterSize(version string, sz int) error {
 	return nil
 }
 
-func validateAerospikeConfig(logger log.Logger, config v1alpha1.Values, storage *aerospikev1alpha1.AerospikeStorageSpec, clSize int) error {
+func validateAerospikeConfig(logger log.Logger, config v1alpha1.AeroConfMap, storage *aerospikev1alpha1.AerospikeStorageSpec, clSize int) error {
 	if config == nil {
 		return fmt.Errorf("aerospikeConfig cannot be empty")
 	}
@@ -202,6 +202,10 @@ func validateNamespaceReplicationFactor(logger log.Logger, nsConf map[string]int
 		if clSize < rf {
 			return fmt.Errorf("namespace replication-factor %v cannot be more than cluster size %d", rf, clSize)
 		}
+	} else if rf, ok := rfInterface.(float64); ok {
+		if float64(clSize) < rf {
+			return fmt.Errorf("namespace replication-factor %v cannot be more than cluster size %d", rf, clSize)
+		}
 	} else {
 		return fmt.Errorf("namespace replication-factor %v not valid int or int64", rfInterface)
 	}
@@ -209,7 +213,7 @@ func validateNamespaceReplicationFactor(logger log.Logger, nsConf map[string]int
 	return nil
 }
 
-func validateAerospikeConfigUpdate(logger log.Logger, newConf, oldConf aerospikev1alpha1.Values) error {
+func validateAerospikeConfigUpdate(logger log.Logger, newConf, oldConf aerospikev1alpha1.AeroConfMap) error {
 	logger.Info("Validate AerospikeConfig update")
 
 	// Security can not be updated dynamically
@@ -256,7 +260,7 @@ func validateAerospikeConfigUpdate(logger log.Logger, newConf, oldConf aerospike
 	return nil
 }
 
-func validateNsConfUpdate(logger log.Logger, newConf, oldConf aerospikev1alpha1.Values) error {
+func validateNsConfUpdate(logger log.Logger, newConf, oldConf aerospikev1alpha1.AeroConfMap) error {
 
 	newNsConfList := newConf["namespaces"].([]interface{})
 
@@ -313,7 +317,7 @@ func validateNsConfUpdate(logger log.Logger, newConf, oldConf aerospikev1alpha1.
 	return nil
 }
 
-func validateAerospikeConfigSchema(logger log.Logger, version string, config aerospikev1alpha1.Values) error {
+func validateAerospikeConfigSchema(logger log.Logger, version string, config aerospikev1alpha1.AeroConfMap) error {
 	logger = logger.New(log.Ctx{"version": version})
 
 	asConf, err := asconfig.NewMapAsConfig(version, config)
@@ -334,7 +338,7 @@ func validateAerospikeConfigSchema(logger log.Logger, version string, config aer
 	return nil
 }
 
-func validateRequiredFileStorage(logger log.Logger, config aerospikev1alpha1.Values, storage *aerospikev1alpha1.AerospikeStorageSpec, validationPolicy *aerospikev1alpha1.ValidationPolicySpec, version string) error {
+func validateRequiredFileStorage(logger log.Logger, config aerospikev1alpha1.AeroConfMap, storage *aerospikev1alpha1.AerospikeStorageSpec, validationPolicy *aerospikev1alpha1.ValidationPolicySpec, version string) error {
 
 	_, fileStorageList, err := storage.GetStorageList()
 	if err != nil {
@@ -383,7 +387,7 @@ func validateRequiredFileStorage(logger log.Logger, config aerospikev1alpha1.Val
 	return nil
 }
 
-func validateConfigMapVolumes(logger log.Logger, config aerospikev1alpha1.Values, storage *aerospikev1alpha1.AerospikeStorageSpec, validationPolicy *aerospikev1alpha1.ValidationPolicySpec, version string) error {
+func validateConfigMapVolumes(logger log.Logger, config aerospikev1alpha1.AeroConfMap, storage *aerospikev1alpha1.AerospikeStorageSpec, validationPolicy *aerospikev1alpha1.ValidationPolicySpec, version string) error {
 	_, err := storage.GetConfigMaps()
 	return err
 }
@@ -410,7 +414,7 @@ func isEnterprise(image string) bool {
 }
 
 // isSecretNeeded indicates if aerospikeConfig needs secret
-func isSecretNeeded(aerospikeConfig aerospikev1alpha1.Values) bool {
+func isSecretNeeded(aerospikeConfig aerospikev1alpha1.AeroConfMap) bool {
 	// feature-key-file needs secret
 	if svc, ok := aerospikeConfig["service"]; ok {
 		if _, ok := svc.(map[string]interface{})["feature-key-file"]; ok {

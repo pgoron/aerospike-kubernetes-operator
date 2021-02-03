@@ -32,7 +32,7 @@ const (
 )
 
 // IsTLS tells if cluster is tls enabled
-func IsTLS(aerospikeConfig aerospikev1alpha1.Values) bool {
+func IsTLS(aerospikeConfig aerospikev1alpha1.AeroConfMap) bool {
 	if confInterface, ok := aerospikeConfig[confKeyNetwork]; ok {
 		if networkConf, ok := confInterface.(map[string]interface{}); ok {
 			if _, ok := networkConf[confKeyTLS]; ok {
@@ -46,7 +46,7 @@ func IsTLS(aerospikeConfig aerospikev1alpha1.Values) bool {
 
 // IsSecurityEnabled tells if security is enabled in cluster
 // TODO: can a invalid map come here
-func IsSecurityEnabled(aerospikeConfig aerospikev1alpha1.Values) (bool, error) {
+func IsSecurityEnabled(aerospikeConfig aerospikev1alpha1.AeroConfMap) (bool, error) {
 	// security conf
 	if confInterface, ok := aerospikeConfig[confKeySecurity]; ok {
 		if secConf, ok := confInterface.(map[string]interface{}); ok {
@@ -66,7 +66,7 @@ func IsSecurityEnabled(aerospikeConfig aerospikev1alpha1.Values) (bool, error) {
 
 // ListAerospikeNamespaces returns the list of namespaecs in the input aerospikeConfig.
 // Assumes the namespace section is validated.
-func ListAerospikeNamespaces(aerospikeConfig aerospikev1alpha1.Values) ([]string, error) {
+func ListAerospikeNamespaces(aerospikeConfig aerospikev1alpha1.AeroConfMap) ([]string, error) {
 	namespaces := make([]string, 5)
 	// Get namespace config.
 	if confs, ok := aerospikeConfig[confKeyNamespace].([]interface{}); ok {
@@ -85,7 +85,7 @@ func ListAerospikeNamespaces(aerospikeConfig aerospikev1alpha1.Values) ([]string
 
 // IsAerospikeNamespacePresent indicates if the namespace is present in aerospikeConfig.
 // Assumes the namespace section is validated.
-func IsAerospikeNamespacePresent(aerospikeConfig aerospikev1alpha1.Values, namespaceName string) bool {
+func IsAerospikeNamespacePresent(aerospikeConfig aerospikev1alpha1.AeroConfMap, namespaceName string) bool {
 	// Get namespace config.
 	if confs, ok := aerospikeConfig[confKeyNamespace].([]interface{}); ok {
 		for _, nsConf := range confs {
@@ -105,7 +105,7 @@ func IsAerospikeNamespacePresent(aerospikeConfig aerospikev1alpha1.Values, names
 }
 
 // GetWorkDirectory returns the Aerospike work directory to use for aerospikeConfig.
-func GetWorkDirectory(aerospikeConfig aerospikev1alpha1.Values) string {
+func GetWorkDirectory(aerospikeConfig aerospikev1alpha1.AeroConfMap) string {
 	// Get namespace config.
 	serviceTmp := aerospikeConfig[confKeyService]
 
@@ -121,13 +121,13 @@ func GetWorkDirectory(aerospikeConfig aerospikev1alpha1.Values) string {
 }
 
 // IsXdrEnabled indicates if XDR is enabled in aerospikeConfig.
-func IsXdrEnabled(aerospikeConfig aerospikev1alpha1.Values) bool {
+func IsXdrEnabled(aerospikeConfig aerospikev1alpha1.AeroConfMap) bool {
 	xdrConf := aerospikeConfig[confKeyXdr]
 	return xdrConf != nil
 }
 
 // GetDigestLogFile returns the xdr digest file path if configured.
-func GetDigestLogFile(aerospikeConfig aerospikev1alpha1.Values) (*string, error) {
+func GetDigestLogFile(aerospikeConfig aerospikev1alpha1.AeroConfMap) (*string, error) {
 	if xdrConfTmp, ok := aerospikeConfig[confKeyXdr]; ok {
 		xdrConf, ok := xdrConfTmp.(map[string]interface{})
 		if !ok {
