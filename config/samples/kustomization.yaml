@@ -1,0 +1,4 @@
+## This file is auto-generated, do not modify ##
+resources:
+- aerospike_v1alpha1_aerospikecluster.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
