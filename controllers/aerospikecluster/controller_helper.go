@@ -816,7 +816,7 @@ func (r *AerospikeClusterReconciler) getClientPolicy(aeroCluster *aerospikev1alp
 		policy.TlsConfig = &tlsConf
 	}
 
-	user, pass, err := accessControl.AerospikeAdminCredentials(&aeroCluster.Spec, &aeroCluster.Status.OldSpec, r.getPasswordProvider(aeroCluster))
+	user, pass, err := accessControl.AerospikeAdminCredentials(&aeroCluster.Spec, &aeroCluster.Status.AerospikeClusterSpec, r.getPasswordProvider(aeroCluster))
 	if err != nil {
 		r.Log.Error(err, "Failed to get cluster auth info", "err", err)
 	}
@@ -1267,15 +1267,15 @@ func newEnvVarStatic(name, value string) corev1.EnvVar {
 }
 
 func isClusterResourceUpdated(aeroCluster *aerospikev1alpha1.AerospikeCluster) bool {
-	if aeroCluster.Spec.Resources == nil && aeroCluster.Status.OldSpec.Resources == nil {
+	if aeroCluster.Spec.Resources == nil && aeroCluster.Status.Resources == nil {
 		return false
 	}
 	// TODO: What should be the convention, should we allow removing these things once added in spec?
 	// Should removing be the no op or change the cluster also for these changes? Check for the other also, like auth, secret
-	if (aeroCluster.Spec.Resources == nil && aeroCluster.Status.OldSpec.Resources != nil) ||
-		(aeroCluster.Spec.Resources != nil && aeroCluster.Status.OldSpec.Resources == nil) ||
-		!isResourceListEqual(aeroCluster.Spec.Resources.Requests, aeroCluster.Status.OldSpec.Resources.Requests) ||
-		!isResourceListEqual(aeroCluster.Spec.Resources.Limits, aeroCluster.Status.OldSpec.Resources.Limits) {
+	if (aeroCluster.Spec.Resources == nil && aeroCluster.Status.Resources != nil) ||
+		(aeroCluster.Spec.Resources != nil && aeroCluster.Status.Resources == nil) ||
+		!isResourceListEqual(aeroCluster.Spec.Resources.Requests, aeroCluster.Status.Resources.Requests) ||
+		!isResourceListEqual(aeroCluster.Spec.Resources.Limits, aeroCluster.Status.Resources.Limits) {
 
 		return true
 	}
@@ -1389,7 +1389,7 @@ func getNewRackStateList(aeroCluster *aerospikev1alpha1.AerospikeCluster) []Rack
 
 func getOldRackList(aeroCluster *aerospikev1alpha1.AerospikeCluster) []aerospikev1alpha1.Rack {
 	var rackList []aerospikev1alpha1.Rack
-	for _, rack := range aeroCluster.Status.OldSpec.RackConfig.Racks {
+	for _, rack := range aeroCluster.Status.RackConfig.Racks {
 		rackList = append(rackList, rack)
 	}
 	return rackList

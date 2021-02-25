@@ -63,11 +63,13 @@ type AerospikeClusterSpec struct {
 	// AerospikeConfig sets config in aerospike.conf file. Other configs are taken as default
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
+	// +nullable
 	AerospikeConfig runtime.RawExtension `json:"aerospikeConfig"`
 	// Define resources requests and limits for Aerospike Server Container. Please contact aerospike for proper sizing exercise
 	// Only Memory and Cpu resources can be given
 	// Resources.Limits should be more than Resources.Requests.
 	// +optional
+	// +nullable
 	Resources *corev1.ResourceRequirements `json:"resources"`
 	// ValidationPolicy controls validation of the Aerospike cluster resource.
 	ValidationPolicy *ValidationPolicySpec `json:"validationPolicy,omitempty"`
@@ -98,6 +100,8 @@ type RackConfig struct {
 	// List of Aerospike namespaces for which rack feature will be enabled
 	Namespaces []string `json:"namespaces,omitempty"`
 	// Racks is the list of all racks
+	// +optional
+	// +nullable
 	Racks []Rack `json:"racks"`
 }
 
@@ -578,7 +582,7 @@ type AerospikeClusterStatus struct {
 	// +nullable
 	// +optional
 	// The current state of Aerospike cluster.
-	OldSpec AerospikeClusterSpec `json:",omitempty"`
+	AerospikeClusterSpec `json:",inline,omitempty"`
 
 	// Details about the current condition of the AerospikeCluster resource.
 	//Conditions []apiextensions.CustomResourceDefinitionCondition `json:"conditions"`

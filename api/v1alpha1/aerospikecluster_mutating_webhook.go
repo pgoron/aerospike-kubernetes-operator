@@ -22,28 +22,34 @@ import (
 
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/merge"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // +kubebuilder:webhook:path=/mutate-aerospike-aerospike-com-v1alpha1-aerospikecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=aerospike.aerospike.com,resources=aerospikeclusters,verbs=create;update,versions=v1alpha1,name=maerospikecluster.kb.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.Defaulter = &AerospikeCluster{}
+// var _ webhook.Defaulter = &AerospikeCluster{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *AerospikeCluster) Default() {
-	aerospikeclusterlog.Info("default", "name", r.Name, "aerospikecluster.Spec", r.Spec)
+func (r *AerospikeCluster) Default() admission.Response {
+	aerospikeclusterlog.Info("Setting defaults for aerospikeCluster", "name", r.Name, "aerospikecluster.Spec", r.Spec)
 
 	// TODO(user): fill in your defaulting logic.
 	// r.// logger.Info("Mutate AerospikeCluster create")
 
-	r.setDefaults()
+	// r.setDefaults()
 
-	// if err := r.setDefaults(); err != nil {
-	// 	// r.logger.Error("Mutate AerospikeCluster create failed", log.Ctx{"err": err})
-	// 	return webhook.Denied(err.Error())
-	// }
+	// webhook.AdmissionResponse = admission.Patched("Patched aerospike spec with updated spec", webhook.JSONPatchOp{Operation: "replace", Path: "/spec", Value: r.Spec})
 
-	// return webhook.Patched("Patched aerospike spec with defaults", webhook.JSONPatchOp{Operation: "replace", Path: "/spec", Value: r.Spec})
+	if err := r.setDefaults(); err != nil {
+		aerospikeclusterlog.Error(err, "Mutate AerospikeCluster create failed")
+		return webhook.Denied(err.Error())
+	}
+	aerospikeclusterlog.Info("Setting defaults for aerospikeCluster completed", "name", r.Name)
+
+	return webhook.Patched("Patched aerospike spec with defaults", webhook.JSONPatchOp{Operation: "replace", Path: "/spec", Value: r.Spec})
 }
+
+// registerDefaultingWebhook registers a defaulting webhook if th
 
 // // MutateCreate mutate create
 // // Add storage policy defaults

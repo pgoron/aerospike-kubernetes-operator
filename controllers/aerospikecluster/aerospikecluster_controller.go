@@ -25,8 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -101,11 +101,53 @@ func ignoreSecondaryResource() predicate.Predicate {
 func (r *AerospikeClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aerospikev1alpha1.AerospikeCluster{}).
-		Owns(&appsv1.StatefulSet{}).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: maxConcurrentReconciles,
-		}).
+		// Watches(
+		// 	&source.Kind{Type: &appsv1.StatefulSet{}},
+		// 	&handler.EnqueueRequestForOwner{
+		// 		IsController: true,
+		// 		OwnerType:    &aerospikev1alpha1.AerospikeCluster{},
+		// 	},
+
+		// 	builder.WithPredicates(
+		// 		predicate.Funcs{
+		// 			CreateFunc: func(e event.CreateEvent) bool {
+		// 				return false
+		// 			},
+		// 			UpdateFunc: func(e event.UpdateEvent) bool {
+		// 				return false
+		// 			},
+		// 		},
+		// 	),
+		// ).
+		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(
+			predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+			},
+		)).
+		// WithOptions(controller.Options{
+		// 	MaxConcurrentReconciles: maxConcurrentReconciles,
+		// }).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		// WithEventFilter(predicate.Funcs{
+		// 	UpdateFunc: func(e event.UpdateEvent) bool {
+		// 		// Generation is only updated on spec changes (also on deletion),
+		// 		// not metadata or status
+		// 		// Filter out events where the generation hasn't changed to
+		// 		// avoid being triggered by status updates
+		// 		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		// 	},
+		// 	DeleteFunc: func(e event.DeleteEvent) bool {
+		// 		// The reconciler adds a finalizer so we perform clean-up
+		// 		// when the delete timestamp is added
+		// 		// Suppress Delete events to avoid filtering them out in the Reconcile function
+		// 		return false
+		// 	},
+		// }).
 		Complete(r)
 }
 
@@ -247,7 +289,9 @@ func (r *AerospikeClusterReconciler) Reconcile(ctx context.Context, request ctrl
 
 	// Reconcile all racks
 	if res := r.reconcileRacks(aeroCluster); !res.isSuccess {
-		r.Log.Error(res.err, "Failed to reconcile racks")
+		if res.err != nil {
+			r.Log.Error(res.err, "Failed to reconcile racks")
+		}
 		return res.result, res.err
 	}
 
@@ -358,7 +402,7 @@ func (r *AerospikeClusterReconciler) reconcileRacks(aeroCluster *aerospikev1alph
 		}
 	}
 
-	if len(aeroCluster.Status.OldSpec.RackConfig.Racks) != 0 {
+	if len(aeroCluster.Status.RackConfig.Racks) != 0 {
 		// Remove removed racks
 		if res := r.deleteRacks(aeroCluster, rackStateList); !res.isSuccess {
 			r.Log.Error(res.err, "Failed to remove statefulset for removed racks")
@@ -522,7 +566,7 @@ func (r *AerospikeClusterReconciler) reconcileRack(aeroCluster *aerospikev1alpha
 }
 
 func isClusterAerospikeConfigSecretUpdated(aeroCluster *aerospikev1alpha1.AerospikeCluster) bool {
-	return !reflect.DeepEqual(aeroCluster.Spec.AerospikeConfigSecret, aeroCluster.Status.OldSpec.AerospikeConfigSecret)
+	return !reflect.DeepEqual(aeroCluster.Spec.AerospikeConfigSecret, aeroCluster.Status.AerospikeConfigSecret)
 }
 
 func (r *AerospikeClusterReconciler) needRollingRestartRack(aeroCluster *aerospikev1alpha1.AerospikeCluster, rackState RackState) (bool, error) {
@@ -547,14 +591,14 @@ func (r *AerospikeClusterReconciler) isAerospikeConfigUpdatedForRack(aeroCluster
 	// logger := pkglog.New("AerospikeClusterSTS", getNamespacedNameForStatefulSet(aeroCluster, rackState.Rack.ID))
 
 	// AerospikeConfig nil means status not updated yet
-	if aeroCluster.Status.OldSpec.AerospikeConfig.Raw == nil {
+	if aeroCluster.Status.AerospikeConfig.Raw == nil {
 		return false
 	}
 	// TODO: Should we use some other check? Reconcile may requeue request multiple times before updating status and
 	// then this func will return true until status is updated.
 	// No need to check global AerospikeConfig. Racks will always have
 	// Only Check if rack AerospikeConfig has changed
-	for _, statusRack := range aeroCluster.Status.OldSpec.RackConfig.Racks {
+	for _, statusRack := range aeroCluster.Status.RackConfig.Racks {
 		if rackState.Rack.ID == statusRack.ID {
 			if !reflect.DeepEqual(rackState.Rack.AerospikeConfig, statusRack.AerospikeConfig) {
 				r.Log.Info("Rack AerospikeConfig changed. Need rolling restart", "oldRackConfig", statusRack, "newRackConfig", rackState.Rack)
@@ -867,7 +911,7 @@ func (r *AerospikeClusterReconciler) needRollingRestartPod(aeroCluster *aerospik
 	needRollingRestartPod := false
 
 	// AerospikeConfig nil means status not updated yet
-	if aeroCluster.Status.OldSpec.AerospikeConfig.Raw == nil {
+	if aeroCluster.Status.AerospikeConfig.Raw == nil {
 		return needRollingRestartPod, nil
 	}
 
@@ -1288,7 +1332,7 @@ func (r *AerospikeClusterReconciler) reconcileAccessControl(aeroCluster *aerospi
 	defer aeroClient.Close()
 
 	pp := r.getPasswordProvider(aeroCluster)
-	err = accessControl.ReconcileAccessControl(&aeroCluster.Spec, &aeroCluster.Status.OldSpec, aeroClient, pp, logger)
+	err = accessControl.ReconcileAccessControl(&aeroCluster.Spec, &aeroCluster.Status.AerospikeClusterSpec, aeroClient, pp, logger)
 	return err
 }
 
@@ -1304,14 +1348,11 @@ func (r *AerospikeClusterReconciler) updateStatus(aeroCluster *aerospikev1alpha1
 		return err
 	}
 
-	r.Log.Info("Update cluster value", "old", aeroCluster.Status, "new", newAeroCluster.Status)
-
 	// Deep copy merges so blank out the spec part of status before copying over.
-	newAeroCluster.Status.OldSpec = aerospikev1alpha1.AerospikeClusterSpec{}
-	if err := lib.DeepCopy(&newAeroCluster.Status.OldSpec, &aeroCluster.Spec); err != nil {
+	newAeroCluster.Status.AerospikeClusterSpec = aerospikev1alpha1.AerospikeClusterSpec{}
+	if err := lib.DeepCopy(&newAeroCluster.Status.AerospikeClusterSpec, &aeroCluster.Spec); err != nil {
 		return err
 	}
-	r.Log.Info("Update cluster value", "old", aeroCluster.Status, "new", newAeroCluster.Status)
 
 	err = r.patchStatus(aeroCluster, newAeroCluster)
 	if err != nil {
@@ -1345,7 +1386,7 @@ func (r *AerospikeClusterReconciler) createStatus(aeroCluster *aerospikev1alpha1
 }
 
 func (r *AerospikeClusterReconciler) isNewCluster(aeroCluster *aerospikev1alpha1.AerospikeCluster) (bool, error) {
-	if aeroCluster.Status.OldSpec.AerospikeConfig.Raw != nil {
+	if aeroCluster.Status.AerospikeConfig.Raw != nil {
 		// We have valid status, cluster cannot be new.
 		return false, nil
 	}
@@ -1369,12 +1410,11 @@ func (r *AerospikeClusterReconciler) hasClusterFailed(aeroCluster *aerospikev1al
 		return false, err
 	}
 
-	return !isNew && aeroCluster.Status.OldSpec.AerospikeConfig.Raw == nil, nil
+	return !isNew && aeroCluster.Status.AerospikeConfig.Raw == nil, nil
 }
 
 func (r *AerospikeClusterReconciler) patchStatus(oldAeroCluster, newAeroCluster *aerospikev1alpha1.AerospikeCluster) error {
 	// logger := pkglog.New("AerospikeCluster", utils.ClusterNamespacedName(oldAeroCluster))
-	r.Log.V(1).Info("patchStatus", "oldAeroCluster", oldAeroCluster.Status, "newAeroCluster", newAeroCluster.Status)
 
 	oldJSON, err := json.Marshal(oldAeroCluster)
 	if err != nil {
@@ -1416,16 +1456,16 @@ func (r *AerospikeClusterReconciler) patchStatus(oldAeroCluster, newAeroCluster 
 	}
 
 	patch := client.RawPatch(types.JSONPatchType, jsonpatchJSON)
-	r.Log.V(1).Info("Rawpath ", "jsonpatchJSON", jsonpatchJSON, "patch", patch)
 
 	if err = r.Client.Status().Patch(context.TODO(), oldAeroCluster, patch, client.FieldOwner(patchFieldOwner)); err != nil {
 		return fmt.Errorf("Error patching status: %v", err)
 	}
 
+	return nil
 	// FIXME: Json unmarshal used by above client.Status(),Patch()  does not convert empty lists in the new JSON to empty lists in the target. Seems like a bug in encoding/json/Unmarshall.
 	//
 	// Workaround by force copying new object's status to old object's status.
-	return lib.DeepCopy(&oldAeroCluster.Status, &newAeroCluster.Status)
+	// return lib.DeepCopy(&oldAeroCluster.Status, &newAeroCluster.Status)
 }
 
 // removePodStatus removes podNames from the cluster's pod status.
@@ -1545,7 +1585,10 @@ func (r *AerospikeClusterReconciler) addFinalizer(aeroCluster *aerospikev1alpha1
 	// The object is not being deleted, so if it does not have our finalizer,
 	// then lets add the finalizer and update the object. This is equivalent
 	// registering our finalizer.
+
 	if !containsString(aeroCluster.ObjectMeta.Finalizers, finalizerName) {
+		r.Log.V(1).Info("Adding finalizer", "Current finalizers", aeroCluster.ObjectMeta.Finalizers, "Added", finalizerName)
+
 		aeroCluster.ObjectMeta.Finalizers = append(aeroCluster.ObjectMeta.Finalizers, finalizerName)
 		if err := r.Client.Update(context.TODO(), aeroCluster); err != nil {
 			return err

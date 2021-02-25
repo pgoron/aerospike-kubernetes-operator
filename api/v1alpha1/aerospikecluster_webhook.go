@@ -19,12 +19,23 @@ package v1alpha1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
 var aerospikeclusterlog = logf.Log.WithName("aerospikecluster-resource")
 
+// func (r *AerospikeCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// 	return ctrl.NewWebhookManagedBy(mgr).
+// 		For(r).
+// 		Complete()
+// }
 func (r *AerospikeCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	hookServer := mgr.GetWebhookServer()
+
+	// entryLog.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutate-aerospike-aerospike-com-v1alpha1-aerospikecluster", &webhook.Admission{Handler: &mutatingHandler{}})
+
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()

@@ -117,6 +117,7 @@ spec:
               aerospikeConfig:
                 description: AerospikeConfig sets config in aerospike.conf file. Other
                   configs are taken as default
+                nullable: true
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               aerospikeConfigSecret:
@@ -1641,15 +1642,15 @@ spec:
                       required:
                       - id
                       type: object
+                    nullable: true
                     type: array
-                required:
-                - racks
                 type: object
               resources:
                 description: Define resources requests and limits for Aerospike Server
                   Container. Please contact aerospike for proper sizing exercise Only
                   Memory and Cpu resources can be given Resources.Limits should be
                   more than Resources.Requests.
+                nullable: true
                 properties:
                   limits:
                     additionalProperties:
@@ -1918,6 +1919,7 @@ spec:
               aerospikeConfig:
                 description: AerospikeConfig sets config in aerospike.conf file. Other
                   configs are taken as default
+                nullable: true
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               aerospikeConfigSecret:
@@ -3544,15 +3546,15 @@ spec:
                       required:
                       - id
                       type: object
+                    nullable: true
                     type: array
-                required:
-                - racks
                 type: object
               resources:
                 description: Define resources requests and limits for Aerospike Server
                   Container. Please contact aerospike for proper sizing exercise Only
                   Memory and Cpu resources can be given Resources.Limits should be
                   more than Resources.Requests.
+                nullable: true
                 properties:
                   limits:
                     additionalProperties:
