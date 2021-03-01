@@ -14,9 +14,9 @@ import (
 	accessControl "github.com/aerospike/aerospike-kubernetes-operator/controllers/asconfig"
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/configmap"
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/jsonpatch"
+	lib "github.com/aerospike/aerospike-management-lib"
 
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/utils"
-	lib "github.com/aerospike/aerospike-management-lib"
 	log "github.com/inconshreveable/log15"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1332,7 +1332,17 @@ func (r *AerospikeClusterReconciler) reconcileAccessControl(aeroCluster *aerospi
 	defer aeroClient.Close()
 
 	pp := r.getPasswordProvider(aeroCluster)
-	err = accessControl.ReconcileAccessControl(&aeroCluster.Spec, &aeroCluster.Status.AerospikeClusterSpec, aeroClient, pp, logger)
+
+	// TODO: We are creating a spec object here so that it can be passed to reconcileAccessControl
+	// reconcileAccessControl uses many helper func over spec object. So statusSpec to spec conversion
+	// help in reusing those functions over statusSpec.
+	// See if this can be done in better manner
+	statusSpec := aerospikev1alpha1.AerospikeClusterSpec{}
+	if err := lib.DeepCopy(&statusSpec, &aeroCluster.Status.AerospikeClusterStatusSpec); err != nil {
+		return err
+	}
+
+	err = accessControl.ReconcileAccessControl(&aeroCluster.Spec, &statusSpec, aeroClient, pp, logger)
 	return err
 }
 
@@ -1349,8 +1359,8 @@ func (r *AerospikeClusterReconciler) updateStatus(aeroCluster *aerospikev1alpha1
 	}
 
 	// Deep copy merges so blank out the spec part of status before copying over.
-	newAeroCluster.Status.AerospikeClusterSpec = aerospikev1alpha1.AerospikeClusterSpec{}
-	if err := lib.DeepCopy(&newAeroCluster.Status.AerospikeClusterSpec, &aeroCluster.Spec); err != nil {
+	newAeroCluster.Status.AerospikeClusterStatusSpec = aerospikev1alpha1.AerospikeClusterStatusSpec{}
+	if err := lib.DeepCopy(&newAeroCluster.Status.AerospikeClusterStatusSpec, &aeroCluster.Spec); err != nil {
 		return err
 	}
 
@@ -1361,6 +1371,26 @@ func (r *AerospikeClusterReconciler) updateStatus(aeroCluster *aerospikev1alpha1
 	r.Log.Info("Updated status", "status", newAeroCluster.Status)
 	return nil
 }
+
+// func copySpecToStatus(aeroCluster *aerospikev1alpha1.AerospikeCluster) error {
+// 	// Size int32 `json:"size,omitempty"`
+// 	// Image string `json:"image,omitempty"`
+// 	// MultiPodPerHost bool `json:"multiPodPerHost,omitempty"`
+// 	// Storage AerospikeStorageSpec `json:"storage,omitempty"`
+// 	// AerospikeConfigSecret AerospikeConfigSecretSpec `json:"aerospikeConfigSecret,omitempty"`
+// 	// AerospikeAccessControl *AerospikeAccessControlSpec `json:"aerospikeAccessControl,omitempty"`
+// 	// AerospikeConfig runtime.RawExtension `json:"aerospikeConfig,omitempty"`
+// 	// Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+// 	// ValidationPolicy *ValidationPolicySpec `json:"validationPolicy,omitempty"`
+// 	// RackConfig RackConfig `json:"rackConfig,omitempty"`
+// 	// AerospikeNetworkPolicy AerospikeNetworkPolicy `json:"aerospikeNetworkPolicy,omitempty"`
+// 	// PodSpec AerospikePodSpec `json:"podSpec,omitempty"`
+// 	// Deep copy merges so blank out the spec part of status before copying over.
+// 	aeroCluster.Status.Size = aeroCluster.Spec.Size
+// 	aeroCluster.Status.Image = aeroCluster.Status.Image
+// 	aeroCluster.Status.MultiPodPerHost = aeroCluster.Status.MultiPodPerHost
+// 	return nil
+// }
 
 func (r *AerospikeClusterReconciler) createStatus(aeroCluster *aerospikev1alpha1.AerospikeCluster) error {
 	// logger := pkglog.New("AerospikeCluster", utils.ClusterNamespacedName(aeroCluster))

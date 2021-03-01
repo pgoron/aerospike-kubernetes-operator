@@ -108,6 +108,7 @@ require (
 	k8s.io/apiserver v0.19.4
 	// k8s.io/apiserver v1.20.2
 	k8s.io/cli-runtime v0.19.4
+	//k8s.io/client-go v12.0.0+incompatible
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.19.4
 	k8s.io/component-base v0.19.4
@@ -137,7 +138,5 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-201909241025
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
-	// k8s.io/apimachinery => k8s.io/apimachinery v0.18.2
-	// k8s.io/client-go => k8s.io/client-go v0.17.0 // Required by prometheus-operator
 	k8s.io/client-go => k8s.io/client-go v0.19.2 // Required by prometheus-operator
 )

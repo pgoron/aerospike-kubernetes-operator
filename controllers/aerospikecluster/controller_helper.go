@@ -18,6 +18,7 @@ import (
 	accessControl "github.com/aerospike/aerospike-kubernetes-operator/controllers/asconfig"
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/configmap"
 	"github.com/aerospike/aerospike-kubernetes-operator/controllers/utils"
+	lib "github.com/aerospike/aerospike-management-lib"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -816,7 +817,16 @@ func (r *AerospikeClusterReconciler) getClientPolicy(aeroCluster *aerospikev1alp
 		policy.TlsConfig = &tlsConf
 	}
 
-	user, pass, err := accessControl.AerospikeAdminCredentials(&aeroCluster.Spec, &aeroCluster.Status.AerospikeClusterSpec, r.getPasswordProvider(aeroCluster))
+	// TODO: We are creating a spec object here so that it can be passed to reconcileAccessControl
+	// reconcileAccessControl uses many helper func over spec object. So statusSpec to spec conversion
+	// help in reusing those functions over statusSpec.
+	// See if this can be done in better manner
+	statusSpec := aerospikev1alpha1.AerospikeClusterSpec{}
+	if err := lib.DeepCopy(&statusSpec, &aeroCluster.Status.AerospikeClusterStatusSpec); err != nil {
+		r.Log.Error(err, "Failed to copy spec in status", "err", err)
+	}
+
+	user, pass, err := accessControl.AerospikeAdminCredentials(&aeroCluster.Spec, &statusSpec, r.getPasswordProvider(aeroCluster))
 	if err != nil {
 		r.Log.Error(err, "Failed to get cluster auth info", "err", err)
 	}

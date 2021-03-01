@@ -29,6 +29,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -217,14 +218,14 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	// if err := mgrGlobal.AddHealthzCheck("health", healthz.Ping); err != nil {
-	// 	setupLog.Error(err, err, "unable to set up health check")
-	// 	os.Exit(1)
-	// }
-	// if err := mgrGlobal.AddReadyzCheck("check", healthz.Ping); err != nil {
-	// 	setupLog.Error(err, err, "unable to set up ready check")
-	// 	os.Exit(1)
-	// }
+	if err := mgrGlobal.AddHealthzCheck("health", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgrGlobal.AddReadyzCheck("check", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 	setupLog.Info("starting manager")
 	if err := mgrGlobal.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")

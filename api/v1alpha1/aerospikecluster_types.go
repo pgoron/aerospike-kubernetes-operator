@@ -37,10 +37,8 @@ type AerospikeClusterSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// Aerospike cluster size
-	// +optional
 	Size int32 `json:"size"`
 	// Aerospike server image
-	// +optional
 	Image string `json:"image"`
 	// If set true then multiple pods can be created per Kubernetes Node.
 	// This will create a NodePort service for each Pod.
@@ -62,14 +60,10 @@ type AerospikeClusterSpec struct {
 	AerospikeAccessControl *AerospikeAccessControlSpec `json:"aerospikeAccessControl,omitempty"`
 	// AerospikeConfig sets config in aerospike.conf file. Other configs are taken as default
 	// +kubebuilder:pruning:PreserveUnknownFields
-	// +optional
-	// +nullable
 	AerospikeConfig runtime.RawExtension `json:"aerospikeConfig"`
 	// Define resources requests and limits for Aerospike Server Container. Please contact aerospike for proper sizing exercise
 	// Only Memory and Cpu resources can be given
 	// Resources.Limits should be more than Resources.Requests.
-	// +optional
-	// +nullable
 	Resources *corev1.ResourceRequirements `json:"resources"`
 	// ValidationPolicy controls validation of the Aerospike cluster resource.
 	ValidationPolicy *ValidationPolicySpec `json:"validationPolicy,omitempty"`
@@ -573,6 +567,47 @@ func (v *AeroConfMap) DeepCopy() *AeroConfMap {
 	return &dst
 }
 
+type AerospikeClusterStatusSpec struct {
+	// Aerospike cluster size
+	Size int32 `json:"size,omitempty"`
+	// Aerospike server image
+	Image string `json:"image,omitempty"`
+	// If set true then multiple pods can be created per Kubernetes Node.
+	// This will create a NodePort service for each Pod.
+	// NodePort, as the name implies, opens a specific port on all the Kubernetes Nodes ,
+	// and any traffic that is sent to this port is forwarded to the service.
+	// Here service picks a random port in range (30000-32767), so these port should be open.
+	//
+	// If set false then only single pod can be created per Kubernetes Node.
+	// This will create Pods using hostPort setting.
+	// The container port will be exposed to the external network at <hostIP>:<hostPort>,
+	// where the hostIP is the IP address of the Kubernetes Node where the container is running and
+	// the hostPort is the port requested by the user.
+	MultiPodPerHost bool `json:"multiPodPerHost,omitempty"`
+	// Storage specify persistent storage to use for the Aerospike pods.
+	Storage AerospikeStorageSpec `json:"storage,omitempty"`
+	// AerospikeConfigSecret has secret info created by user. User needs to create this secret having tls files, feature key for cluster
+	AerospikeConfigSecret AerospikeConfigSecretSpec `json:"aerospikeConfigSecret,omitempty"`
+	// AerospikeAccessControl has the Aerospike roles and users definitions. Required if aerospike cluster security is enabled.
+	AerospikeAccessControl *AerospikeAccessControlSpec `json:"aerospikeAccessControl,omitempty"`
+	// AerospikeConfig sets config in aerospike.conf file. Other configs are taken as default
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
+	AerospikeConfig runtime.RawExtension `json:"aerospikeConfig,omitempty"`
+	// Define resources requests and limits for Aerospike Server Container. Please contact aerospike for proper sizing exercise
+	// Only Memory and Cpu resources can be given
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// ValidationPolicy controls validation of the Aerospike cluster resource.
+	ValidationPolicy *ValidationPolicySpec `json:"validationPolicy,omitempty"`
+	// RackConfig Configures the operator to deploy rack aware Aerospike cluster. Pods will be deployed in given racks based on given configuration
+	// +nullable
+	RackConfig RackConfig `json:"rackConfig,omitempty"`
+	// AerospikeNetworkPolicy specifies how clients and tools access the Aerospike cluster.
+	AerospikeNetworkPolicy AerospikeNetworkPolicy `json:"aerospikeNetworkPolicy,omitempty"`
+	// Additional configuration for create Aerospike pods.
+	PodSpec AerospikePodSpec `json:"podSpec,omitempty"`
+}
+
 // AerospikeClusterStatus defines the observed state of AerospikeCluster
 // +k8s:openapi-gen=true
 type AerospikeClusterStatus struct {
@@ -582,7 +617,7 @@ type AerospikeClusterStatus struct {
 	// +nullable
 	// +optional
 	// The current state of Aerospike cluster.
-	AerospikeClusterSpec `json:",inline,omitempty"`
+	AerospikeClusterStatusSpec `json:",inline,omitempty"`
 
 	// Details about the current condition of the AerospikeCluster resource.
 	//Conditions []apiextensions.CustomResourceDefinitionCondition `json:"conditions"`
