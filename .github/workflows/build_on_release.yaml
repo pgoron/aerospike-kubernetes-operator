@@ -1,0 +1,25 @@
+name: Release
+on: release
+jobs:
+
+  build:
+    name: Publish artifacts
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.go_version }}
+    - uses: actions/checkout@v2
+    - name: Directories
+      run: mkdir -p output/build-${GITHUB_REF#refs/*/}/bin
+    - name: Build
+      run: go build -v -o output/build-${GITHUB_REF#refs/*/}/aerospike-kubernetes-operator github.com/aerospike/aerospike-kubernetes-operator/cmd/manager
+    - name: Copy
+      run: cp -v build/bin/* output/build-${GITHUB_REF#refs/*/}/bin/
+    - name: Upload
+      uses: fnkr/github-action-ghr@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GHR_PATH: ./output
+        GHR_COMPRESS: gz
