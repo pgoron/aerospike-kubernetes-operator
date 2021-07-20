@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ func (r *AerospikeClusterReconciler) createSTS(aeroCluster *asdbv1alpha1.Aerospi
 		newSTSEnvVar("MY_POD_NAMESPACE", "metadata.namespace"),
 		newSTSEnvVar("MY_POD_IP", "status.podIP"),
 		newSTSEnvVar("MY_HOST_IP", "status.hostIP"),
+		newSTSEnvVar("MY_NODE_NAME", "spec.nodeName"),
 		newSTSEnvVarStatic("MY_POD_TLS_NAME", getServiceTLSName(aeroCluster)),
 		newSTSEnvVarStatic("MY_POD_CLUSTER_NAME", aeroCluster.Name),
 	}
@@ -99,7 +101,7 @@ func (r *AerospikeClusterReconciler) createSTS(aeroCluster *asdbv1alpha1.Aerospi
 					//TerminationGracePeriodSeconds: &int64(30),
 					InitContainers: []corev1.Container{{
 						Name:  asdbv1alpha1.AerospikeServerInitContainerName,
-						Image: "aerospike/aerospike-kubernetes-init:0.0.14",
+						Image: r.GetAerospikeServerInitContainerImage(aeroCluster),
 						// Change to PullAlways for image testing.
 						//ImagePullPolicy: corev1.PullIfNotPresent,
 						ImagePullPolicy: corev1.PullAlways,
@@ -277,6 +279,18 @@ func (r *AerospikeClusterReconciler) waitForSTSToBeReady(st *appsv1.StatefulSet)
 	r.Log.Info("Statefulset is ready")
 
 	return nil
+}
+
+func (r *AerospikeClusterReconciler) GetAerospikeServerInitContainerImage(aeroCluster *asdbv1alpha1.AerospikeCluster) string {
+	image, found := os.LookupEnv(asdbv1alpha1.AerospikeServerInitContainerImageEnvVar)
+	if !found {
+		r.Log.Info(fmt.Sprintf("%s not set, using %s for init container image",
+			asdbv1alpha1.AerospikeServerInitContainerImageEnvVar, asdbv1alpha1.AerospikeServerInitContainerDefaultImage))
+		return asdbv1alpha1.AerospikeServerInitContainerDefaultImage
+	}
+	r.Log.Info(fmt.Sprintf("%s set, using %s for init container image",
+		asdbv1alpha1.AerospikeServerInitContainerImageEnvVar, image))
+	return image
 }
 
 func (r *AerospikeClusterReconciler) getSTS(aeroCluster *asdbv1alpha1.AerospikeCluster, rackState RackState) (*appsv1.StatefulSet, error) {

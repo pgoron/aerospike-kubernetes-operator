@@ -22,6 +22,7 @@ set -x
 CA_CERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 KUBE_API_SERVER=https://kubernetes.default.svc
+NODE=$MY_NODE_NAME
 NAMESPACE=$MY_POD_NAMESPACE
 
 # Get tls, info port
