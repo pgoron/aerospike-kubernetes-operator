@@ -59,7 +59,7 @@ function join {
 }
 
 # Parse out cluster name, formatted as: stsname-rackid-index
-IFS='-' read -ra ADDR <<< "$(hostname)"
+IFS='-' read -ra ADDR <<< "${MY_POD_NAME}"
 
 POD_ORDINAL="${ADDR[-1]}"
 
@@ -489,10 +489,10 @@ TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 KUBE_API_SERVER=https://kubernetes.default.svc
 NODE=$MY_NODE_NAME
 
-HOSTNAME=$(hostname)
+HOSTNAME=${MY_POD_NAME}
 
 # Parse out cluster name, formatted as: petset_name-rackid-index
-IFS='-' read -ra ADDR <<< "$(hostname)"
+IFS='-' read -ra ADDR <<< "${MY_POD_NAME}"
 
 POD_ORDINAL="${ADDR[-1]}"
 
