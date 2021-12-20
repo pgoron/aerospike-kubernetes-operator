@@ -182,11 +182,15 @@ func reconcileUsers(desired map[string]aerospikev1alpha1.AerospikeUserSpec, curr
 	userReconcileCmds := []AerospikeAccessControlReconcileCmd{}
 
 	// Create a list of user commands to drop.
-	usersToDrop := sliceSubtract(currentUserNames, requiredUserNames)
-
-	for _, userToDrop := range usersToDrop {
-		userReconcileCmds = append(userReconcileCmds, AerospikeUserDrop{name: userToDrop})
-	}
+	//
+	// Criteo is using only LDAP users for its applications
+	// These LDAP users should not be dropped, so the loop below is commented
+	//
+	//usersToDrop := sliceSubtract(currentUserNames, requiredUserNames)
+	//
+	//for _, userToDrop := range usersToDrop {
+	//	userReconcileCmds = append(userReconcileCmds, AerospikeUserDrop{name: userToDrop})
+	//}
 
 	// Admin user update command should be execute last to ensure admin password
 	// update does not disrupt reconciliation.
