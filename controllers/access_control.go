@@ -213,15 +213,22 @@ func (r *SingleClusterReconciler) reconcileUsers(
 		requiredUserNames = append(requiredUserNames, userName)
 	}
 
+	// When the operator performs user reconciliation it
+	// deletes all users not in the spec, but ldap users
+	// are (by definition) not in the spec. When ldap users
+	// are detected, it can lead to a situation where it is
+	// not recreated when a client is using it. This lead
+	// to "Not authenticated" error that clients have hard
+	// time to recover (if/when they do)
 	// Create a list of user commands to drop.
 	usersToDrop := SliceSubtract(currentUserNames, requiredUserNames)
 	userReconcileCmds := make([]aerospikeAccessControlReconcileCmd, 0, len(usersToDrop)+len(desired))
 
-	for _, userToDrop := range usersToDrop {
-		userReconcileCmds = append(
-			userReconcileCmds, aerospikeUserDrop{name: userToDrop},
-		)
-	}
+	// for _, userToDrop := range usersToDrop {
+	// 	userReconcileCmds = append(
+	// 		userReconcileCmds, aerospikeUserDrop{name: userToDrop},
+	// 	)
+	// }
 
 	// Admin user update command should be executed last to ensure admin password
 	// update does not disrupt reconciliation.
@@ -738,33 +745,33 @@ func (userCreate aerospikeUserCreateUpdate) updateUser(
 }
 
 // aerospikeUserDrop drops an Aerospike user.
-type aerospikeUserDrop struct {
-	// The user's name.
-	name string
-}
+// type aerospikeUserDrop struct {
+// 	// The user's name.
+// 	name string
+// }
 
-// Execute implements dropping the user.
-func (userDrop aerospikeUserDrop) execute(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
-	recorder record.EventRecorder, aeroCluster *asdbv1beta1.AerospikeCluster,
-) error {
-	logger.Info("Dropping user", "username", userDrop.name)
+// // Execute implements dropping the user.
+// func (userDrop aerospikeUserDrop) execute(
+// 	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+// 	recorder record.EventRecorder, aeroCluster *asdbv1beta1.AerospikeCluster,
+// ) error {
+// 	logger.Info("Dropping user", "username", userDrop.name)
 
-	if err := client.DropUser(adminPolicy, userDrop.name); err != nil {
-		if !strings.Contains(err.Error(), userNotFoundErr) {
-			// Failure to drop for the user.
-			return fmt.Errorf("error dropping user %s: %v", userDrop.name, err)
-		}
-	}
+// 	if err := client.DropUser(adminPolicy, userDrop.name); err != nil {
+// 		if !strings.Contains(err.Error(), userNotFoundErr) {
+// 			// Failure to drop for the user.
+// 			return fmt.Errorf("error dropping user %s: %v", userDrop.name, err)
+// 		}
+// 	}
 
-	logger.Info("Dropped user", "username", userDrop.name)
-	recorder.Eventf(
-		aeroCluster, corev1.EventTypeNormal, "UserDeleted",
-		"Dropped User %s", userDrop.name,
-	)
+// 	logger.Info("Dropped user", "username", userDrop.name)
+// 	recorder.Eventf(
+// 		aeroCluster, corev1.EventTypeNormal, "UserDeleted",
+// 		"Dropped User %s", userDrop.name,
+// 	)
 
-	return nil
-}
+// 	return nil
+// }
 
 // aerospikeRoleDrop drops an Aerospike role.
 type aerospikeRoleDrop struct {

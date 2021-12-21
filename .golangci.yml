@@ -30,7 +30,7 @@ linters:
     - exportloopref
     - exhaustive
     - goconst
-    - gocritic
+    # - gocritic
     - gofmt
     - goimports
     - gocyclo
