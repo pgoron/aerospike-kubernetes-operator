@@ -215,14 +215,21 @@ func reconcileUsers(
 
 	var userReconcileCmds []AerospikeAccessControlReconcileCmd
 
+	// When the operator performs user reconciliation it
+	// deletes all users not in the spec, but ldap users
+	// are (by definition) not in the spec. When ldap users
+	// are detected, it can lead to a situation where it is
+	// not recreated when a client is using it. This lead
+	// to "Not authenticated" error that clients have hard
+	// time to recover (if/when they do)
 	// Create a list of user commands to drop.
-	usersToDrop := SliceSubtract(currentUserNames, requiredUserNames)
-
-	for _, userToDrop := range usersToDrop {
-		userReconcileCmds = append(
-			userReconcileCmds, AerospikeUserDrop{name: userToDrop},
-		)
-	}
+	//usersToDrop := SliceSubtract(currentUserNames, requiredUserNames)
+	//
+	//for _, userToDrop := range usersToDrop {
+	//	userReconcileCmds = append(
+	//		userReconcileCmds, AerospikeUserDrop{name: userToDrop},
+	//	)
+	//}
 
 	// Admin user update command should be executed last to ensure admin password
 	// update does not disrupt reconciliation.
