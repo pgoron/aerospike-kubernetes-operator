@@ -5,3 +5,10 @@ features.conf
 GPATH
 GRTAGS
 GTAGS
+
+#IDE
+.idea/
+
+#files used by local image build
+Dockerfile
+output/
