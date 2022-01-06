@@ -31,7 +31,13 @@ PEERS=/etc/aerospike/peers
 # Update node and rack ids configuration file
 # ------------------------------------------------------------------------------
 sed -i "s/ENV_NODE_ID/${NODE_ID}/" ${CFG}
-sed -i "s/rack-id.*0/rack-id    ${RACK_ID}/" ${CFG}
+
+ALTERNATE_RACK_ID="$(curl -f --cacert $CA_CERT -H "Authorization: Bearer $TOKEN" "$KUBE_API_SERVER/api/v1/nodes/$MY_NODE_NAME" | awk '/aerospike.com\/alternate-rack-id/ {gsub(/"|,/,"",$2); print ($2) + 0}')"
+if [ "$ALTERNATE_RACK_ID" == "0" ] || [ "$ALTERNATE_RACK_ID" == "" ]; then
+  sed -i "s/rack-id.*0/rack-id    ${RACK_ID}/" ${CFG}
+else
+  sed -i "s/rack-id.*0/rack-id    ${ALTERNATE_RACK_ID}/" ${CFG}
+fi
 
 echo "" > $GENERATED_ENV
 

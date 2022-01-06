@@ -113,6 +113,7 @@ func (r *SingleClusterReconciler) createSTS(
 		newSTSEnvVar("MY_POD_NAMESPACE", "metadata.namespace"),
 		newSTSEnvVar("MY_POD_IP", "status.podIP"),
 		newSTSEnvVar("MY_HOST_IP", "status.hostIP"),
+		newSTSEnvVar("MY_NODE_NAME", "spec.nodeName"),
 		newSTSEnvVarStatic("MY_POD_TLS_NAME", tlsName),
 		newSTSEnvVarStatic("MY_POD_CLUSTER_NAME", r.aeroCluster.Name),
 	}
