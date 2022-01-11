@@ -14,6 +14,9 @@ spec:
   # Aerospike server docker image
   image: {{ .Values.image.repository | default "aerospike/aerospike-server-enterprise" }}:{{ .Values.image.tag | default "5.7.0.8" }}
 
+  # init image
+  initImage: {{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}
+
   # Aerospike access control configuration
   {{- with .Values.aerospikeAccessControl }}
   aerospikeAccessControl: {{- toYaml . | nindent 4 }}

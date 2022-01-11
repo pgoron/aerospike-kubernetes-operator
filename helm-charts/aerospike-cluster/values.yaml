@@ -10,6 +10,12 @@ image:
   repository: aerospike/aerospike-server-enterprise
   tag: 5.7.0.8
 
+## Init image
+initImage:
+  repository: aerospike/aerospike-kubernetes-init
+  tag: 0.0.15
+  # pullPolicy: IfNotPresent
+
 ## In case the above image is pulled from a registry that requires
 ## authentication, a secret containining credentials can be added
 ## imagePullSecrets:
