@@ -1097,24 +1097,129 @@ func validateNsConfUpdate(
 					)
 				}
 				if ok1 && ok2 && !reflect.DeepEqual(storage, oldStorage) {
+					/* Allow a subset of storage-engine modifications (addition of unused devices)
 					return fmt.Errorf(
 						"storage-engine config cannot be changed. Old namespace config %v, new namespace config %v",
 						oldSingleConf, singleConf,
 					)
+					*/
+					oldSeConf := oldStorage.(map[string]interface{})
+					newSeConf := storage.(map[string]interface{})
+					err := validateStorageEngineConfUpdate(&oldSeConf, &newSeConf, singleConf["name"].(string))
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
 
 		// Cannot add new persistent namespaces.
 		if !found && !isInMemoryNamespace(singleConf) {
+			/* Allow addition of persistent namespaces
 			return fmt.Errorf(
 				"new persistent storage namespace %s cannot be added. Old namespace list %v, new namespace list %v",
 				singleConf["name"], oldNsConfList, newNsConfList,
 			)
+			*/
 		}
 	}
+
+	err := validateStorageEngineDeviceUsage(&oldConf, &newConf)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+
 	// Check for namespace name len
 	return nil
+}
+
+// validateStorageConfiguration returns an error if any key is updated except devices key
+func validateStorageEngineConfUpdate(
+	oldStorage *map[string]interface{}, newStorage *map[string]interface{},
+	namespace string,
+) error {
+
+	for key, oldValue := range *oldStorage {
+		if key != "devices" {
+			newValue, exists := (*newStorage)[key]
+			if !exists || !reflect.DeepEqual(oldValue, newValue) {
+				return fmt.Errorf("%s of storage-engine cannot be changed (namespace=%s).", key, namespace)
+			}
+		}
+	}
+
+	for key, _ := range *newStorage {
+		if key != "devices" {
+			_, exists := (*oldStorage)[key]
+			if !exists {
+				return fmt.Errorf("%s of storage-engine cannot be changed (namespace=%s).", key, namespace)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateStorageEngineDeviceUsage(oldConf *map[string]interface{}, newConf *map[string]interface{}) error {
+	// check that each device appears once in new Storage configuration (ie no reuse between namespaces)
+	newConfDeviceList, err := getDeviceUsage(newConf)
+	if err != nil {
+		return err
+	}
+
+	oldConfDeviceList, err := getDeviceUsage(oldConf)
+	if err != nil {
+		return err
+	}
+
+	// check that devices that appear in both oldStorage and newStorage are used by same namespace
+	// (ie no reallocation of a device to another namespace)
+	for device, newNamespace := range *newConfDeviceList {
+		oldNamespace, exists := (*oldConfDeviceList)[device]
+		if exists && oldNamespace != newNamespace {
+			return fmt.Errorf(
+				"Device %s is being reallocated from namespace %s to namespace %s without being cleaned-up first.",
+				device, oldNamespace, newNamespace)
+		}
+	}
+
+	// check that devices from previous configuration still appear in new configuration
+	for device, oldNamespace := range *oldConfDeviceList {
+		_, exists := (*newConfDeviceList)[device]
+		if !exists {
+			return fmt.Errorf(
+				"Device %s is being removed from namespace %s. Operation not yet supported by the operator.",
+				device, oldNamespace)
+		}
+	}
+
+	return nil
+}
+
+// getDeviceUsage returns an association device->namespace for all devices referenced in persistent namespaces
+func getDeviceUsage(aerospikeConf *map[string]interface{}) (*map[string]string, error) {
+	deviceList := map[string]string{}
+
+	// build a map device -> namespace
+	for _, nsConfInterface := range (*aerospikeConf)["namespaces"].([]interface{}) {
+		nsConf := nsConfInterface.(map[string]interface{})
+		namespace := nsConf["name"].(string)
+		storageEngineConf := nsConf["storage-engine"].(map[string]interface{})
+		devicesConf := storageEngineConf["devices"].([]string)
+
+		for _, device := range devicesConf {
+			previousNamespace, exists := deviceList[device]
+			if !exists {
+				deviceList[device] = namespace
+			} else {
+				return nil, fmt.Errorf(
+					"device %s is already being referenced in multiple namespaces (%s, %s)",
+					device, previousNamespace, namespace)
+			}
+		}
+	}
+
+	return &deviceList, nil
 }
 
 func validateAerospikeConfigSchema(
