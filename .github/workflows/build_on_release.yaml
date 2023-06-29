@@ -1,5 +1,5 @@
 name: Release
-on: 
+on:
   release:
     types: [published]
 jobs:
@@ -15,10 +15,15 @@ jobs:
     - uses: actions/checkout@v2
     - name: Directories
       run: mkdir -p output/build-${GITHUB_REF#refs/*/}/bin
-    - name: Build
+    - name: Build manager
       run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
-    - name: Copy
+    - name: Copy manager
       run: cp -v manager output/build-${GITHUB_REF#refs/*/}/bin/
+    - name: Build akoinit
+      working-directory: ./init
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o akoinit main.go
+    - name: Copy akoinit
+      run: cp -v init/akoinit output/build-${GITHUB_REF#refs/*/}/bin/
     - name: Upload
       uses: fnkr/github-action-ghr@v1
       env:
