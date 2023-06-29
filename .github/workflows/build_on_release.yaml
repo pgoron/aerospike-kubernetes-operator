@@ -19,11 +19,17 @@ jobs:
       run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
     - name: Copy manager
       run: cp -v manager output/build-${GITHUB_REF#refs/*/}/bin/
+    - name: Init Directory
+      run: mkdir -p output/build-${GITHUB_REF#refs/*/}/init
     - name: Build akoinit
       working-directory: ./init
       run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o akoinit main.go
-    - name: Copy akoinit
-      run: cp -v init/akoinit output/build-${GITHUB_REF#refs/*/}/bin/
+    - name: Copy akoinit binary
+      run: cp -v init/akoinit output/build-${GITHUB_REF#refs/*/}/init/
+    - name: Copy akoinit entrypoint
+      run: cp -v init/entrypoint.sh output/build-${GITHUB_REF#refs/*/}/init/
+    - name: Copy akoinit license
+      run: cp -v init/LICENSE output/build-${GITHUB_REF#refs/*/}/init/
     - name: Upload
       uses: fnkr/github-action-ghr@v1
       env:
