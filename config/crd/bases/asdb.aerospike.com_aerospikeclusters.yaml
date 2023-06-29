@@ -242,6 +242,9 @@ spec:
               image:
                 description: Aerospike server image
                 type: string
+              initImage:
+                description: Aerospike init image (for retrocompatibility ako-2.0.0-criteo)
+                type: string
               operatorClientCert:
                 description: Certificates to connect to Aerospike.
                 properties:
@@ -418,6 +421,10 @@ spec:
                     description: AerospikeInitContainerSpec configures the aerospike-init
                       container cre
                     properties:
+                      image:
+                        description: Image is the name of image for aerospike-init
+                          container image
+                        type: string
                       imageRegistry:
                         description: ImageRegistry is the name of image registry for
                           aerospike-init contain
@@ -6283,6 +6290,10 @@ spec:
                     description: AerospikeInitContainerSpec configures the aerospike-init
                       container cre
                     properties:
+                      image:
+                        description: Image is the name of image for aerospike-init
+                          container image
+                        type: string
                       imageRegistry:
                         description: ImageRegistry is the name of image registry for
                           aerospike-init contain

@@ -96,33 +96,37 @@ const (
 	AerospikeRackIDLabel         = "aerospike.com/rack-id"
 )
 
-func getInitContainerImage(registry string) string {
+func getInitContainerImage(registry string, image string) string {
 	return fmt.Sprintf(
 		"%s/%s/%s", strings.TrimSuffix(registry, "/"),
 		strings.TrimSuffix(AerospikeInitContainerDefaultRegistryNamespace, "/"),
-		AerospikeInitContainerDefaultRepoAndTag,
+		image,
 	)
 }
 
 func GetAerospikeInitContainerImage(aeroCluster *AerospikeCluster) string {
 	// Given in CR
 	registry := ""
+	image := AerospikeInitContainerDefaultRepoAndTag
 	if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec != nil {
 		registry = aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.ImageRegistry
+		if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.Image != "" {
+			image = aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.Image
+		}
 	}
 
 	if registry != "" {
-		return getInitContainerImage(registry)
+		return getInitContainerImage(registry, image)
 	}
 
 	// Given in EnvVar
 	registry, found := os.LookupEnv(AerospikeInitContainerRegistryEnvVar)
 	if found {
-		return getInitContainerImage(registry)
+		return getInitContainerImage(registry, image)
 	}
 
 	// Use default
-	return getInitContainerImage(AerospikeInitContainerDefaultRegistry)
+	return getInitContainerImage(AerospikeInitContainerDefaultRegistry, image)
 }
 
 func ClusterNamespacedName(aeroCluster *AerospikeCluster) string {

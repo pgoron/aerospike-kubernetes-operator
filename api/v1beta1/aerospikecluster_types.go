@@ -42,6 +42,8 @@ type AerospikeClusterSpec struct { //nolint:govet // for readability
 	// Aerospike server image
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Server Image"
 	Image string `json:"image"`
+	// Aerospike init image (for retrocompatibility ako-2.0.0-criteo)
+	InitImage string `json:"initImage,omitempty"`
 	// Storage specify persistent storage to use for the Aerospike pods
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage"
 	Storage AerospikeStorageSpec `json:"storage,omitempty"`
@@ -273,6 +275,8 @@ type AerospikeInitContainerSpec struct { //nolint:govet // for readability
 	// ImageRegistry is the name of image registry for aerospike-init container image
 	// ImageRegistry, e.g. docker.io, redhat.access.com
 	ImageRegistry string `json:"imageRegistry,omitempty"`
+	// Image is the name of image for aerospike-init container image
+	Image string `json:"image,omitempty"`
 	// SecurityContext that will be added to aerospike-init container created by operator.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 	// Define resources requests and limits for Aerospike init Container.
