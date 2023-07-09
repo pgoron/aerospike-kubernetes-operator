@@ -98,8 +98,7 @@ const (
 
 func getInitContainerImage(registry string, image string) string {
 	return fmt.Sprintf(
-		"%s/%s/%s", strings.TrimSuffix(registry, "/"),
-		strings.TrimSuffix(AerospikeInitContainerDefaultRegistryNamespace, "/"),
+		"%s/%s", strings.TrimSuffix(registry, "/"),
 		image,
 	)
 }
@@ -107,7 +106,7 @@ func getInitContainerImage(registry string, image string) string {
 func GetAerospikeInitContainerImage(aeroCluster *AerospikeCluster) string {
 	// Given in CR
 	registry := ""
-	image := AerospikeInitContainerDefaultRepoAndTag
+	image := fmt.Sprintf("%s/%s", AerospikeInitContainerDefaultRegistryNamespace, AerospikeInitContainerDefaultRepoAndTag)
 	if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec != nil {
 		registry = aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.ImageRegistry
 		if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.Image != "" {
