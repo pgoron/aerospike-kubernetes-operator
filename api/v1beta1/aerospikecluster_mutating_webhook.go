@@ -772,8 +772,8 @@ func escapeValue(valueGeneric interface{}) interface{} {
 }
 
 func escapeString(str string) string {
-	str = strings.ReplaceAll(str, "${un}", "$${_DNE}{un}")
-	str = strings.ReplaceAll(str, "${dn}", "$${_DNE}{dn}")
+	str = strings.ReplaceAll(str, "${un}", "\\${un}")
+	str = strings.ReplaceAll(str, "${dn}", "\\${dn}")
 
 	return str
 }
