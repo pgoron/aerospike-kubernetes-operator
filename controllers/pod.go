@@ -11,6 +11,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -234,7 +236,7 @@ func (r *SingleClusterReconciler) rollingRestartPods(
 	if len(failedPods) != 0 {
 		r.Log.Info("Restart failed pods", "pods", getPodNames(failedPods))
 
-		if res := r.restartPods(rackState, failedPods, restartTypeMap); !res.isSuccess {
+		if res := r.restartPods(rackState, failedPods, restartTypeMap, true); !res.isSuccess {
 			return res
 		}
 	}
@@ -246,7 +248,7 @@ func (r *SingleClusterReconciler) rollingRestartPods(
 			return res
 		}
 
-		if res := r.restartPods(rackState, activePods, restartTypeMap); !res.isSuccess {
+		if res := r.restartPods(rackState, activePods, restartTypeMap, false); !res.isSuccess {
 			return res
 		}
 	}
@@ -349,7 +351,7 @@ func (r *SingleClusterReconciler) restartASDOrUpdateAerospikeConf(podName string
 }
 
 func (r *SingleClusterReconciler) restartPods(
-	rackState *RackState, podsToRestart []*corev1.Pod, restartTypeMap map[string]RestartType,
+	rackState *RackState, podsToRestart []*corev1.Pod, restartTypeMap map[string]RestartType, bypassPdb bool,
 ) reconcileResult {
 	// For each block volume removed from a namespace, pod status dirtyVolumes is appended with that volume name.
 	// For each file removed from a namespace, it is deleted right away.
@@ -359,6 +361,7 @@ func (r *SingleClusterReconciler) restartPods(
 
 	restartedPods := make([]*corev1.Pod, 0, len(podsToRestart))
 	blockedK8sNodes := sets.NewString(r.aeroCluster.Spec.K8sNodeBlockList...)
+	failedEvictedPods := make([]*corev1.Pod, 0)
 
 	for idx := range podsToRestart {
 		pod := podsToRestart[idx]
@@ -370,25 +373,45 @@ func (r *SingleClusterReconciler) restartPods(
 			if err := r.restartASDOrUpdateAerospikeConf(pod.Name, quickRestart); err == nil {
 				continue
 			}
-		}
+		} else if bypassPdb || blockedK8sNodes.Has(pod.Spec.NodeName) {
+			if blockedK8sNodes.Has(pod.Spec.NodeName) {
+				r.Log.Info("Pod found in blocked nodes list, deleting corresponding local PVCs if any",
+					"podName", pod.Name)
 
-		if blockedK8sNodes.Has(pod.Spec.NodeName) {
-			r.Log.Info("Pod found in blocked nodes list, deleting corresponding local PVCs if any",
-				"podName", pod.Name)
+				if err := r.deleteLocalPVCs(rackState, pod); err != nil {
+					return reconcileError(err)
+				}
+			}
 
-			if err := r.deleteLocalPVCs(rackState, pod); err != nil {
+			if err := r.Client.Delete(context.TODO(), pod); err != nil {
+				r.Log.Error(err, "Failed to delete pod")
 				return reconcileError(err)
 			}
-		}
-
-		if err := r.Client.Delete(context.TODO(), pod); err != nil {
-			r.Log.Error(err, "Failed to delete pod")
-			return reconcileError(err)
+		} else {
+			if err := r.KubeClient.CoreV1().Pods(pod.Namespace).Evict(context.TODO(),
+				&policyv1beta1.Eviction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pod.Name,
+						Namespace: pod.Namespace,
+					},
+				}); err != nil {
+				r.Log.Error(err, fmt.Sprintf("Not evictable pod %s in ns %s. Will QuiesceUndo and retry in 30sec. Error: %s", pod.Name, pod.Namespace, err.Error()))
+				// in case of error during the eviction, unquiesce the node since it has been quiesced.
+				failedEvictedPods = append(failedEvictedPods, pod)
+				continue
+			}
 		}
 
 		restartedPods = append(restartedPods, pod)
 
 		r.Log.V(1).Info("Pod deleted", "podName", pod.Name)
+	}
+
+	if len(failedEvictedPods) > 0 {
+		if err := r.quiesceUndoPods(r.getClientPolicy(), failedEvictedPods); err != nil {
+			r.Log.Error(err, "Unexpected error during quiesce-undo command")
+		}
+		return reconcileRequeueAfter(30)
 	}
 
 	if len(restartedPods) > 0 {

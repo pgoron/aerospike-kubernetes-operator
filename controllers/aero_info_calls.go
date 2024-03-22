@@ -16,9 +16,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	as "github.com/aerospike/aerospike-client-go/v7"
@@ -74,6 +77,28 @@ func (r *SingleClusterReconciler) waitForMultipleNodesSafeStopReady(
 		return reconcileRequeueAfter(1)
 	}
 
+	/*
+	 * Dry run evictions on pods.
+	 * This is to avoid an unecessary quiesce if the eviction fail.
+	 * Still an unquiesce in case of error during real eviction must be considered.
+	 */
+	for _, pod := range pods {
+		if err := r.KubeClient.CoreV1().Pods(pod.Namespace).Evict(context.TODO(),
+			&policyv1beta1.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pod.Name,
+					Namespace: pod.Namespace,
+				},
+				DeleteOptions: &metav1.DeleteOptions{
+					DryRun: []string{metav1.DryRunAll},
+				},
+			}); err != nil {
+
+			r.Log.Info(fmt.Sprintf("Not evictable pod %s in ns %s. Won't quiesce and retry in 30sec. Error: %s", pod.Name, pod.Namespace, err.Error()))
+			return reconcileRequeueAfter(30)
+		}
+	}
+
 	if err := r.quiescePods(policy, allHostConns, pods, ignorablePodNames); err != nil {
 		return reconcileError(err)
 	}
@@ -101,6 +126,48 @@ func (r *SingleClusterReconciler) quiescePods(
 	}
 
 	return deployment.InfoQuiesce(r.Log, policy, allHostConns, selectedHostConns, r.removedNamespaces(nodesNamespaces))
+}
+
+func (r *SingleClusterReconciler) quiesceUndoPods(policy *as.ClientPolicy, pods []*corev1.Pod) error {
+	arrayPods := make([]corev1.Pod, len(pods), len(pods))
+	for _, pod := range pods {
+		arrayPods = append(arrayPods, *pod)
+	}
+
+	selectedHostConns, err := r.newPodsHostConnWithOption(arrayPods, sets.Set[string]{})
+	if err != nil {
+		return err
+	}
+
+	/*
+	* HACK: Force a recluster with an empty list of hosts.
+	* Since aerospike-management-lib doesn't expose any "recluster" public function
+	* We are using InfoQuiesce to call "recluster" using an empty list of hosts too apply the QuiesceUndo.
+	 */
+	err = deployment.InfoQuiesceUndo(r.Log, policy, selectedHostConns)
+	if err != nil {
+		// In any case (error or no error), the caller will reconcileRequeueAfter.
+		if strings.Contains(err.Error(), "failed to execute recluster command") {
+			return r.recluster(policy)
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+/*
+ * HACK: Force a recluster with an empty list of hosts.
+ * Since aerospike-management-lib doesn't expose any "recluster" public function
+ * We are using InfoQuiesce to call "recluster" using an empty list of hosts too apply the Quiesce.
+ */
+func (r *SingleClusterReconciler) recluster(policy *as.ClientPolicy) error {
+
+	allHostConns, err := r.newAllHostConnWithOption(sets.Set[string]{})
+	if err != nil {
+		return err
+	}
+	return r.quiescePods(policy, allHostConns, []*corev1.Pod{}, sets.Set[string]{})
 }
 
 // TODO: Check only for migration
