@@ -119,33 +119,36 @@ func GetWorkDirectory(aerospikeConfigSpec AerospikeConfigSpec) string {
 	return DefaultWorkDirectory
 }
 
-func getInitContainerImage(registry string) string {
+func getInitContainerImage(registry string, image string) string {
 	return fmt.Sprintf(
-		"%s/%s/%s", strings.TrimSuffix(registry, "/"),
-		strings.TrimSuffix(AerospikeInitContainerDefaultRegistryNamespace, "/"),
-		AerospikeInitContainerDefaultRepoAndTag,
+		"%s/%s", strings.TrimSuffix(registry, "/"),
+		image,
 	)
 }
 
 func GetAerospikeInitContainerImage(aeroCluster *AerospikeCluster) string {
 	// Given in CR
 	registry := ""
+	image := fmt.Sprintf("%s/%s", AerospikeInitContainerDefaultRegistryNamespace, AerospikeInitContainerDefaultRepoAndTag)
 	if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec != nil {
 		registry = aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.ImageRegistry
+		if aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.Image != "" {
+			image = aeroCluster.Spec.PodSpec.AerospikeInitContainerSpec.Image
+		}
 	}
 
 	if registry != "" {
-		return getInitContainerImage(registry)
+		return getInitContainerImage(registry, image)
 	}
 
 	// Given in EnvVar
 	registry, found := os.LookupEnv(AerospikeInitContainerRegistryEnvVar)
 	if found {
-		return getInitContainerImage(registry)
+		return getInitContainerImage(registry, image)
 	}
 
 	// Use default
-	return getInitContainerImage(AerospikeInitContainerDefaultRegistry)
+	return getInitContainerImage(AerospikeInitContainerDefaultRegistry, image)
 }
 
 func ClusterNamespacedName(aeroCluster *AerospikeCluster) string {
