@@ -1,0 +1,30 @@
+name: Release
+on:
+  release:
+    types: [published]
+jobs:
+  build:
+    name: Publish artifacts
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup go
+      uses: actions/setup-go@v5
+      with:
+        # read go version from go.mod file
+        go-version-file: 'go.mod'
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Directories
+      run: mkdir -p output/build-${GITHUB_REF#refs/*/}/bin
+    - name: Build
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
+    - name: Copy
+      run: cp -v manager output/build-${GITHUB_REF#refs/*/}/bin/
+    - name: Upload
+      uses: fnkr/github-action-ghr@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GHR_PATH: ./output
+        GHR_COMPRESS: gz
