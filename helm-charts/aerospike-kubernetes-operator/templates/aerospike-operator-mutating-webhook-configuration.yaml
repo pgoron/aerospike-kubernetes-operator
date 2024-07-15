@@ -3,7 +3,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/aerospike-operator-serving-cert
-  name: aerospike-operator-mutating-webhook-configuration
+  name: aerospike-operator-mutating-webhook-configuration-{{ .Release.Namespace }}
   labels:
     app: {{ template "aerospike-kubernetes-operator.fullname" . }}
     chart: {{ .Chart.Name }}
@@ -11,6 +11,15 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  namespaceSelector:
+    matchExpressions:
+      - key: crto.in/namespace
+        operator: In
+        values:
+        {{- range $value := split "," .Values.watchNamespaces }}
+        - "{{ $value }}"
+        {{- end }}
   clientConfig:
     service:
       name: aerospike-operator-webhook-service
