@@ -5,6 +5,10 @@
 ## Aerospike cluster size
 replicas: 3
 
+## PDB management enabled by default
+disablePDB: false
+maxUnavailable: 1
+
 ## Aerospike server docker image
 image:
   repository: aerospike/aerospike-server-enterprise

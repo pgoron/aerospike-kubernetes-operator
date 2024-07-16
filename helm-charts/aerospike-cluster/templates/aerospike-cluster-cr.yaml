@@ -15,6 +15,10 @@ spec:
   # Aerospike cluster size
   size: {{ .Values.replicas | default 3 }}
 
+  # Control PodDisruptionBudget creation for the Aerospike cluster.
+  disablePDB: {{ .Values.disablePDB | default false}}
+  maxUnavailable: {{ if not .Values.disablePDB }}{{ .Values.maxUnavailable }}{{end}}
+
   # Aerospike server docker image
   image: {{ .Values.image.repository | default "aerospike/aerospike-server-enterprise" }}:{{ .Values.image.tag | default "7.1.0.0" }}
 
