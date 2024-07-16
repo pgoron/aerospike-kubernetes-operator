@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aerospike-cluster-{{ .Release.Namespace }}
+  labels:
+    app: {{ template "aerospike-kubernetes-operator.fullname" . }}
+    chart: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aerospike-cluster-{{ .Release.Namespace }}
+subjects:
+{{- range $key, $ns := (split "," .Values.watchNamespaces) }}
+- kind: ServiceAccount
+  name: aerospike-operator-controller-manager
+  namespace: {{ $ns }}
+{{- end }}
