@@ -208,6 +208,15 @@ func (r *SingleClusterReconciler) buildConfigTemplate(rack *asdbv1.Rack) (
 	// No need for asConf version validation, it's already validated in admission webhook
 
 	confFile := asConf.ToConfFile()
+	// CRITEO
+	//   Aerospike 7.1.0.6 introduced a breaking change on configuration file format
+	//   See https://aerospike.com/docs/reference/release_notes/server/7.1.0.6-server-release-notes#aer-6767
+	//   For enable-benchmarks-* parameters, their presence is no more sufficient, true or false need to be specified otherwise asd won't start
+	//   Issue raised in support request #00038867-Incompatibility between aerospike server 7.1.0.6 and ako 3.3.0- Criteo (HQ)
+	//   Aerospike is planning to fix aerospike-management-lib in a future release of AKO (>3.4.0) but meanwhile we do a quick & dirty fix
+	re := regexp.MustCompile("(?m)(enable-benchmarks-read|enable-benchmarks-write|enable-benchmarks-batch-sub)$")
+	confFile = re.ReplaceAllString(confFile, "$1    true")
+	// END CRITEO
 	log.V(1).Info("AerospikeConfig", "conf", confFile)
 
 	return confFile, nil
